@@ -1,0 +1,11 @@
+
+enum CraftType {
+    CARPENTER
+    BLACKSMITH
+    ARMOURER
+    GOLDSMITH
+    LEATHERWORKER
+    WEAVER
+    ALCHEMIST
+    CULINARIAN
+}

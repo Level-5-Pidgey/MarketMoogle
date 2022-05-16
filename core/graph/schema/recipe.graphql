@@ -1,0 +1,13 @@
+
+type Recipe {
+    RecipeId: Int!
+    ItemResultId: Int!
+    ResultQuantity: Int!
+    CraftedBy: CraftType!
+    RecipeLevel: Int
+    MasteryStars: Int
+    RecipeItems: [RecipeContents!]
+    SuggestedControl: Int
+    SuggestedCraftsmanship: Int
+    Durability: Int
+}

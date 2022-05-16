@@ -1,0 +1,13 @@
+scalar Timestamp
+
+type MarketboardEntry {
+    ItemId: Int!
+    LastUpdateTime: Timestamp!
+    MarketEntries: [MarketEntry!]
+    DataCenter: String!
+    CurrentAveragePrice: Float!
+    CurrentMinPrice: Int
+    RegularSaleVelocity: Float!
+    HqSaleVelocity: Float!
+    NqSaleVelocity: Float!
+}

@@ -1,0 +1,10 @@
+type MarketEntry {
+    ServerId: Int!
+    Server: String!
+    Quantity: Int!
+    TotalPrice: Int!
+    PricePer: Int!
+    Hq: Boolean!
+    IsCrafted: Boolean!
+    RetainerName: String
+}

@@ -1,0 +1,11 @@
+
+type Job {
+    Id: ID!
+    JobId: Int!
+    Level: Int!
+}
+
+input JobInput {
+    JobId: Int!
+    Level: Int!
+}

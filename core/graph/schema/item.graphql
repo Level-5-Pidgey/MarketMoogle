@@ -1,0 +1,16 @@
+
+type Item {
+    ItemID: Int!
+    Name: String!
+    Description: String
+    CanBeHq: Boolean!
+    IconId: Int!
+    Recipes: [Recipe!]
+    SellToVendorValue: Int
+    BuyFromVendorValue: Int
+    MarketboardEntries: [MarketboardEntry!]!
+    ResaleValue(DataCenter: String!, HomeServer: String!) : Int!
+    VendorResaleValue(DataCenter: String!, HomeServer: String!) : Int!
+    RecipeResaleValue(BuyFromOtherSevers: Boolean, BuyCrystals: Boolean, DataCenter: String!, HomeServer: String!): RecipeResaleInformation!
+}
+

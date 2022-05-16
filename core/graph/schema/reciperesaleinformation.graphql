@@ -1,0 +1,15 @@
+
+type RecipeResaleInformation {
+    Profit: Int!
+    ItemsToPurchase: [RecipePurchaseInformation!]!
+    CraftLevel: Int!
+    CraftType: CraftType!
+    ItemCost: Int!
+}
+
+type RecipePurchaseInformation {
+    Item: Item!
+    ServerToBuyFrom: String!
+    BuyFromVendor: Boolean!
+    Quantity: Int!
+}
