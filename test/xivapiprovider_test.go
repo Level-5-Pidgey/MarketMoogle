@@ -8,7 +8,7 @@ package test
 
 import (
 	"MarketMoogleAPI/core/apitypes/xivapi"
-	"MarketMoogleAPI/infrastructure/providers"
+	"MarketMoogleAPI/infrastructure/providers/api"
 	"reflect"
 	"testing"
 )
@@ -45,7 +45,7 @@ func TestXivApiProvider_GetGameItemById(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := providers.XivApiProvider{}
+			p := api.XivApiProvider{}
 			got, err := p.GetGameItemById(&tt.args.contentId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetGameItemById() error = %v, wantErr %v", err, tt.wantErr)
@@ -91,7 +91,7 @@ func TestXivApiProvider_GetItemsAndPrices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := providers.XivApiProvider{}
+			p := api.XivApiProvider{}
 			got, err := p.GetItemsAndPrices(&tt.args.shopId)
 
 			if (err != nil) != tt.wantErr {
@@ -139,7 +139,7 @@ func TestXivApiProvider_GetItemsInShop(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := providers.XivApiProvider{}
+			p := api.XivApiProvider{}
 			got, err := p.GetItemsAndPrices(&tt.args.shopId)
 
 			if (err != nil) != tt.wantErr {
@@ -208,7 +208,7 @@ func TestXivApiProvider_GetLodestoneInfoById(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := providers.XivApiProvider{}
+			p := api.XivApiProvider{}
 			got, err := p.GetLodestoneInfoById(&tt.args.lodestoneId)
 
 			if (err != nil) != tt.wantErr {
@@ -261,7 +261,7 @@ func TestXivApiProvider_GetRecipeIdByItemId(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := providers.XivApiProvider{}
+			p := api.XivApiProvider{}
 			got, err := p.GetRecipeIdByItemId(&tt.args.contentId)
 
 			if (err != nil) != tt.wantErr {

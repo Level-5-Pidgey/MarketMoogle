@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2022 Carl Alexander Bird.
- * This file (recipecontents.resolvers.go) is part of MarketMoogle and is released GNU General Public License.
- * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
- */
-
 package graph
 
 // This file will be automatically regenerated based on the schema, any resolver implementations
@@ -12,12 +6,14 @@ package graph
 import (
 	generated "MarketMoogleAPI/core/graph/gen"
 	schema "MarketMoogleAPI/core/graph/model"
+	"MarketMoogleAPI/infrastructure/providers/db"
 	"context"
 	"fmt"
 )
 
+// Item is the resolver for the Item field.
 func (r *recipeContentsResolver) Item(ctx context.Context, obj *schema.RecipeContents) (*schema.Item, error) {
-	item, err := dbProv.FindItemByItemId(ctx, obj.ItemID)
+	item, err := r.itemProv.FindItemByItemId(ctx, obj.ItemID)
 
 	if item == nil {
 		dummyDesc := fmt.Sprintf("Item with ID %d could not be found.", obj.ItemID)
@@ -39,7 +35,15 @@ func (r *recipeContentsResolver) Item(ctx context.Context, obj *schema.RecipeCon
 
 // RecipeContents returns generated.RecipeContentsResolver implementation.
 func (r *Resolver) RecipeContents() generated.RecipeContentsResolver {
-	return &recipeContentsResolver{r}
+	iProv := db.NewItemDataBaseProvider(r.DbClient)
+	
+	return &recipeContentsResolver{
+		Resolver: 	r,
+		itemProv:   iProv,
+	}
 }
 
-type recipeContentsResolver struct{ *Resolver }
+type recipeContentsResolver struct{ 
+	*Resolver
+	itemProv   *db.ItemDatabaseProvider
+}

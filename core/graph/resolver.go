@@ -6,12 +6,14 @@
 
 package graph
 
-import "MarketMoogleAPI/infrastructure/providers/db"
+import (
+	"MarketMoogleAPI/infrastructure/providers/db"
+)
 
 // This file will not be regenerated automatically.
 //
 // It serves as dependency injection for your app, add any dependencies you require here.
 
-var dbProv = db.NewDbProvider()
-
-type Resolver struct{}
+type Resolver struct{
+	DbClient *db.DatabaseClient
+}

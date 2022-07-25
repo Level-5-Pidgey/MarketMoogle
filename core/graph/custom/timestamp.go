@@ -20,13 +20,13 @@ func MarshalTimestamp(t time.Time) graphql.Marshaler {
 	}
 
 	return graphql.WriterFunc(func(writer io.Writer) {
-		io.WriteString(writer, strconv.Quote(t.Format(time.RFC3339Nano)))
+		io.WriteString(writer, strconv.Quote(t.Format(time.StampMilli)))
 	})
 }
 
 func UnmarshalTimestamp(v interface{}) (time.Time, error) {
 	if tmpStr, ok := v.(string); ok {
-		return time.Parse(time.RFC3339Nano, tmpStr)
+		return time.Parse(time.StampMilli, tmpStr)
 	}
-	return time.Time{}, errors.New("time should be RFC3339Nano formatted string")
+	return time.Time{}, errors.New("time should be StampMilli formatted string")
 }

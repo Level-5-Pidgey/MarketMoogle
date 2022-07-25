@@ -18,12 +18,19 @@ func ConvertTimestampStringToTime(timestampString string) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	tm := time.Unix(0, i)
+	tm := time.Unix(0, i).UTC()
+
+	return tm, nil
+}
+
+func ConvertTimestampIntToTime(timestampint int) (time.Time, error) {
+	tm := time.Unix(0, int64(timestampint))
+
 	return tm, nil
 }
 
 func ConvertTimeToTimestampString(dateTime time.Time) string {
-	timestamp := strconv.FormatInt(dateTime.UTC().UnixNano(), 10)
+	timestamp := strconv.FormatInt(dateTime.UTC().UnixMilli(), 10)
 	return timestamp
 }
 

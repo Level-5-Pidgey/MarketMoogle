@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2022 Carl Alexander Bird.
- * This file (mutation.resolvers.go) is part of MarketMoogle and is released GNU General Public License.
- * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
- */
-
 package graph
 
 // This file will be automatically regenerated based on the schema, any resolver implementations
@@ -16,6 +10,7 @@ import (
 	"fmt"
 )
 
+// CreateUser is the resolver for the CreateUser field.
 func (r *mutationResolver) CreateUser(ctx context.Context, lodestoneID *int) (*schema.User, error) {
 	/*//Create base object
 	user := schema.User{
@@ -54,6 +49,7 @@ func (r *mutationResolver) CreateUser(ctx context.Context, lodestoneID *int) (*s
 	panic(fmt.Errorf("not implemented"))
 }
 
+// UpdateUser is the resolver for the UpdateUser field.
 func (r *mutationResolver) UpdateUser(ctx context.Context, playerID *int, input schema.UserInput) (*schema.User, error) {
 	/*updatedUser := schema.User{
 		ID:              *playerID,
@@ -84,6 +80,7 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, playerID *int, input 
 	panic(fmt.Errorf("not implemented"))
 }
 
+// DeleteUser is the resolver for the DeleteUser field.
 func (r *mutationResolver) DeleteUser(ctx context.Context, playerID *int) (bool, error) {
 	/*internalErrorString := "internal error"
 	deleteUser := schema.User{}

@@ -6,7 +6,10 @@
 
 package universalis
 
-import schema "MarketMoogleAPI/core/graph/model"
+import (
+	schema "MarketMoogleAPI/core/graph/model"
+	"strconv"
+)
 
 type MarketQuery struct {
 	ItemID                int             `json:"itemID"`
@@ -54,14 +57,40 @@ type RecentHistory struct {
 	Total        int    `json:"total"`
 }
 
-func (m MarketQuery) CreateMarketEntries() []*schema.MarketEntry {
+func (query MarketQuery) GetItemHistory(listingsPerServer int) []*schema.MarketHistory {
+	var marketEntries []*schema.MarketHistory
+	servers := make(map[string]int)
+
+	for _, listing := range query.RecentHistory {
+		//Only allow a set number of entries per server
+		servers[listing.WorldName]++
+		if servers[listing.WorldName] >= listingsPerServer {
+			continue
+		}
+
+		entry := schema.MarketHistory{
+			ServerID:        listing.WorldID,
+			Server:          listing.WorldName,
+			Quantity:        listing.Quantity,
+			PricePer:        listing.PricePerUnit,
+			TotalPrice:      listing.Total,
+			TransactionTime: strconv.Itoa(listing.Timestamp),
+			Hq:              listing.Hq,
+		}
+
+		marketEntries = append(marketEntries, &entry)
+	}
+
+	return marketEntries
+}
+
+func (query MarketQuery) GetMarketEntries(listingsPerServer int) []*schema.MarketEntry {
 	var marketEntries []*schema.MarketEntry
 	servers := make(map[string]int)
 
-	for _, listing := range m.Listings {
-		//Limit each server to 4 market listings.
+	for _, listing := range query.Listings {
 		servers[listing.WorldName]++
-		if servers[listing.WorldName] >= 4 {
+		if servers[listing.WorldName] >= listingsPerServer {
 			continue
 		}
 

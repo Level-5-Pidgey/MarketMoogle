@@ -1,9 +1,3 @@
-/*
- * Copyright (c) 2022 Carl Alexander Bird.
- * This file (item.resolvers.go) is part of MarketMoogle and is released GNU General Public License.
- * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
- */
-
 package graph
 
 // This file will be automatically regenerated based on the schema, any resolver implementations
@@ -12,30 +6,56 @@ package graph
 import (
 	generated "MarketMoogleAPI/core/graph/gen"
 	schema "MarketMoogleAPI/core/graph/model"
+	"MarketMoogleAPI/infrastructure/providers"
+	"MarketMoogleAPI/infrastructure/providers/db"
 	"context"
 )
 
+// Recipes is the resolver for the Recipes field.
 func (r *itemResolver) Recipes(ctx context.Context, obj *schema.Item) ([]*schema.Recipe, error) {
-	return dbProv.FindRecipesByItemId(ctx, obj.ItemID)
+	return r.recipeProv.FindRecipesByItemId(ctx, obj.ItemID)
 }
 
+// MarketboardEntries is the resolver for the MarketboardEntries field.
 func (r *itemResolver) MarketboardEntries(ctx context.Context, obj *schema.Item) ([]*schema.MarketboardEntry, error) {
-	return dbProv.FindMarketboardEntriesByItemId(ctx, obj.ItemID)
+	return r.mbProv.FindMarketboardEntriesByItemId(ctx, obj.ItemID)
 }
 
+// ResaleValue is the resolver for the ResaleValue field.
 func (r *itemResolver) ResaleValue(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error) {
-	return dbProv.GetCrossDcResaleProfit(ctx, obj, &dataCenter, &homeServer)
+	return r.profitProv.GetCrossDcResaleProfit(ctx, obj, dataCenter, homeServer)
 }
 
+// VendorResaleValue is the resolver for the VendorResaleValue field.
 func (r *itemResolver) VendorResaleValue(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error) {
-	return dbProv.GetVendorResaleProfit(ctx, obj, &dataCenter, &homeServer)
+	return r.profitProv.GetVendorResaleProfit(ctx, obj, dataCenter, homeServer)
 }
 
+// RecipeResaleValue is the resolver for the RecipeResaleValue field.
 func (r *itemResolver) RecipeResaleValue(ctx context.Context, obj *schema.Item, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) (*schema.RecipeResaleInformation, error) {
-	return dbProv.GetCraftingProfit(ctx, obj, &dataCenter, &homeServer, buyCrystals, buyFromOtherSevers)
+	return r.profitProv.GetCraftingProfit(ctx, obj, dataCenter, homeServer, buyCrystals, buyFromOtherSevers)
 }
 
 // Item returns generated.ItemResolver implementation.
-func (r *Resolver) Item() generated.ItemResolver { return &itemResolver{r} }
+func (r *Resolver) Item() generated.ItemResolver {
 
-type itemResolver struct{ *Resolver }
+	rProv := db.NewRecipeDatabaseProvider(r.DbClient)
+	mProv := db.NewMarketboardDatabaseProvider(r.DbClient)
+	iProv := db.NewItemDataBaseProvider(r.DbClient)
+
+	return &itemResolver{
+		Resolver:   r,
+		recipeProv: rProv,
+		mbProv:     mProv,
+		itemProv:   iProv,
+		profitProv: providers.NewItemProfitProvider(rProv, mProv, iProv),
+	}
+}
+
+type itemResolver struct {
+	*Resolver
+	recipeProv *db.RecipeDatabaseProvider
+	mbProv     *db.MarketboardDatabaseProvider
+	itemProv   *db.ItemDatabaseProvider
+	profitProv *providers.ItemProfitProvider
+}

@@ -1,15 +1,14 @@
 /*
  * Copyright (c) 2022 Carl Alexander Bird.
- * This file (xivapiprovider.go) is part of MarketMoogle and is released GNU General Public License.
- * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
+ * This file (xivapiprovider.go) is part of MarketMoogleAPI and is released GNU General Public License.
+ * Please see the "LICENSE" file within MarketMoogleAPI to view the full license. This file, and all code within MarketMoogleAPI fall under the GNU General Public License.
  */
 
-package providers
+package api
 
 import (
 	"MarketMoogleAPI/core/apitypes/xivapi"
 	"fmt"
-	"github.com/ahmetb/go-linq/v3"
 	"log"
 )
 
@@ -29,7 +28,7 @@ func (p XivApiProvider) GetRecipeIdByItemId(contentId *int) (*xivapi.RecipeLooku
 	return MakeXivApiContentRequest[xivapi.RecipeLookup]("RecipeLookup", contentId)
 }
 
-func (p XivApiProvider) GetItemsAndPrices(shopId *int) (*map[int]int, error) {
+func (p XivApiProvider) GetItemsAndPrices(shopId *int) (map[int]int, error) {
 	gilShop, err := p.getShopById(shopId)
 
 	if err != nil {
@@ -41,7 +40,7 @@ func (p XivApiProvider) GetItemsAndPrices(shopId *int) (*map[int]int, error) {
 		itemAndPrice[item.ID] = item.PriceMid
 	}
 
-	return &itemAndPrice, nil
+	return itemAndPrice, nil
 }
 
 func (p XivApiProvider) getShopById(shopId *int) (*xivapi.GilShop, error) {
@@ -106,11 +105,14 @@ func (p XivApiProvider) GetItems() (*[]int, error) {
 
 func getNonBlankIds(page *xivapi.PaginatedContent) []int {
 	var result []int
-	linq.From(page.Results).WhereT(func(x xivapi.PaginatedResult) bool {
-		return x.Name != ""
-	}).SelectT(func(y xivapi.PaginatedResult) interface{} {
-		return y.ID
-	}).ToSlice(&result)
+
+	for _, resultContent := range page.Results {
+		if resultContent.Name == "" {
+			continue
+		}
+
+		result = append(result, resultContent.ID)
+	}
 
 	return result
 }

@@ -30,6 +30,16 @@ type MarketEntry struct {
 	RetainerName *string `json:"RetainerName"`
 }
 
+type MarketHistory struct {
+	ServerID        int    `json:"ServerId"`
+	Server          string `json:"Server"`
+	Quantity        int    `json:"Quantity"`
+	TotalPrice      int    `json:"TotalPrice"`
+	PricePer        int    `json:"PricePer"`
+	Hq              bool   `json:"Hq"`
+	TransactionTime string `json:"TransactionTime"`
+}
+
 type Recipe struct {
 	RecipeID               int               `json:"RecipeId"`
 	ItemResultID           int               `json:"ItemResultId"`

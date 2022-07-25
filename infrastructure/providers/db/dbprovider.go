@@ -8,101 +8,141 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
-	"os"
+	"sync"
 	"time"
 )
 
-type DbProvider struct {
-	databaseName string
-	client       *mongo.Client
+var onceClient sync.Once
+var clientErr error
+var client *mongo.Client
+
+type DatabaseClient struct {
+	client        *mongo.Client
+	databaseName  string
+	dbCredentials *options.Credential
+	dbUri         string
 }
 
-func NewDbProvider() *DbProvider {
-	return Connect()
-}
-
-func Connect() *DbProvider {
-	var credentials options.Credential
-	credentials.AuthSource = "admin"
-	credentials.Password = "access123!"
-	credentials.Username = "root"
-
-	hostname := os.Getenv("MONGO_HOST")
-
-	if hostname == "" {
-		hostname = "localhost"
-	}
-
-	client, err := mongo.NewClient(
-		options.Client().
-			ApplyURI(fmt.Sprintf("mongodb://%s:27017", hostname)).
-			SetAuth(credentials))
-
+func NewDatabaseClient(dbName string, uri string, credentials options.Credential) *DatabaseClient {
+	clientConnection, err := mongo.NewClient(options.Client().
+		ApplyURI(uri).
+		SetAuth(credentials))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	err = client.Connect(ctx)
-
-	return &DbProvider{
-		databaseName: "sanctuary",
-		client:       client,
+	err = clientConnection.Connect(context.TODO())
+	if err != nil {
+		log.Fatal(err)
 	}
-}
-
-func (db DbProvider) Disconnect() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	return db.client.Disconnect(ctx)
-}
-
-func (db DbProvider) UpsertCollectionAndIndex(collectionName string, index string) bool {
-	database := db.client.Database(db.databaseName)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	err := db.upsertCollection(ctx, database, collectionName)
-
+	
+	//Verify connection
+	err = clientConnection.Ping(context.TODO(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	collectionToAddIndex := database.Collection(collectionName)
-	collectionToAddIndex.Indexes().List(ctx)
-
-	return false
+	return &DatabaseClient{
+		client:        clientConnection,
+		databaseName:  dbName,
+		dbCredentials: &credentials,
+		dbUri:         uri,
+	}
 }
 
-func (db DbProvider) upsertCollection(ctx context.Context, database *mongo.Database, collectionName string) error {
-	if db.CollectionExists(ctx, database, collectionName) {
+func (dbClient DatabaseClient) CollectionExists(ctx context.Context, collectionName string, database *mongo.Database) (bool, error) {
+	databaseCollections, err := database.ListCollectionNames(ctx, bson.D{})
+
+	if err != nil {
+		return false, err
+	}
+
+	for _, name := range databaseCollections {
+		if name == collectionName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (dbClient DatabaseClient) UpsertCollection(ctx context.Context, collectionName string, database *mongo.Database) error {
+	result, err := dbClient.CollectionExists(ctx, collectionName, database)
+
+	if result && err == nil {
 		return nil
 	}
 
 	return database.CreateCollection(ctx, collectionName)
 }
 
-func (db DbProvider) CollectionExists(ctx context.Context, database *mongo.Database, collectionName string) bool {
-	databaseCollections, err := database.ListCollectionNames(ctx, bson.D{})
+func (dbClient DatabaseClient) FindOne(ctx context.Context, collectionName string, filter interface{}, opts ...*options.FindOneOptions) (*mongo.SingleResult, error) {
+	collection := dbClient.client.Database(dbClient.databaseName).Collection(collectionName)
+	result := collection.FindOne(ctx, filter, opts...)
+
+	return result, result.Err()
+}
+
+func (dbClient DatabaseClient) InsertOne(ctx context.Context, collectionName string, document interface{}, opts ...*options.InsertOneOptions) (*mongo.InsertOneResult, error) {
+	collection := dbClient.client.Database(dbClient.databaseName).Collection(collectionName)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := collection.InsertOne(ctx, document, opts...)
 
 	if err != nil {
 		log.Fatal(err)
-		return false
+		return nil, err
 	}
 
-	for _, name := range databaseCollections {
-		if name == collectionName {
-			return true
-		}
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
 	}
 
-	return false
+	return res, nil
+}
+
+func (dbClient DatabaseClient) UpdateOne(ctx context.Context, collectionName string, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+	collection := dbClient.client.Database(dbClient.databaseName).Collection(collectionName)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := collection.UpdateOne(ctx, filter, update, opts...)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (dbClient DatabaseClient) ReplaceOne(ctx context.Context, collectionName string, filter interface{}, replacement interface{}, opts ...*options.ReplaceOptions) (*mongo.UpdateResult, error) {
+	collection := dbClient.client.Database(dbClient.databaseName).Collection(collectionName)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := collection.ReplaceOne(ctx, filter, replacement, opts...)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	return res, nil
 }

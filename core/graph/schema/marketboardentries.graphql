@@ -4,6 +4,7 @@ type MarketboardEntry {
     ItemId: Int!
     LastUpdateTime: Timestamp!
     MarketEntries: [MarketEntry!]
+    MarketHistory: [MarketHistory!]
     DataCenter: String!
     CurrentAveragePrice: Float!
     CurrentMinPrice: Int

@@ -7,26 +7,28 @@
 package db
 
 import (
-	"MarketMoogleAPI/core/apitypes/xivapi"
 	schema "MarketMoogleAPI/core/graph/model"
-	"MarketMoogleAPI/core/util"
-	"MarketMoogleAPI/infrastructure/providers"
-	"errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/net/context"
 	"log"
-	"time"
 )
 
-const itemCollection = "items"
+type ItemDatabaseProvider struct {
+	db *DatabaseClient
+	collectionName string
+}
 
-func (db DbProvider) SaveItem(input *schema.Item) (*schema.Item, error) {
-	collection := db.client.Database(db.databaseName).Collection(itemCollection)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func NewItemDataBaseProvider(dbClient *DatabaseClient) *ItemDatabaseProvider {
+	return &ItemDatabaseProvider{
+		db: dbClient,
+		collectionName: "items",
+	}
+}
 
-	_, err := collection.InsertOne(ctx, input)
+func (itemProv ItemDatabaseProvider) InsertItem(ctx context.Context, input *schema.Item) (*schema.Item, error) {
+	_, err := itemProv.db.InsertOne(ctx, itemProv.collectionName, input)
 
 	if err != nil {
 		log.Fatal(err)
@@ -36,19 +38,15 @@ func (db DbProvider) SaveItem(input *schema.Item) (*schema.Item, error) {
 	return input, nil
 }
 
-func (db DbProvider) FindItemByObjectId(ID string) (*schema.Item, error) {
-	objectID, err := primitive.ObjectIDFromHex(ID)
+func (itemProv ItemDatabaseProvider) FindItemByObjectId(ctx context.Context, objectIdString string) (*schema.Item, error) {
+	objectID, err := primitive.ObjectIDFromHex(objectIdString)
 
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
 
-	collection := db.client.Database(db.databaseName).Collection(itemCollection)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result := collection.FindOne(ctx, bson.M{"_id": objectID})
+	findResult, err := itemProv.db.FindOne(ctx, itemProv.collectionName, bson.M{"_id": objectID})
 
 	if err != nil {
 		log.Fatal(err)
@@ -56,17 +54,7 @@ func (db DbProvider) FindItemByObjectId(ID string) (*schema.Item, error) {
 	}
 
 	item := schema.Item{}
-	result.Decode(&item)
-
-	return &item, nil
-}
-
-func (db DbProvider) FindItemByItemId(ctx context.Context, ItemId int) (*schema.Item, error) {
-	collection := db.client.Database(db.databaseName).Collection(itemCollection)
-	result := collection.FindOne(ctx, bson.M{"itemid": ItemId})
-
-	item := schema.Item{}
-	err := result.Decode(&item)
+	err = findResult.Decode(&item)
 
 	if err != nil {
 		log.Fatal(err)
@@ -76,87 +64,60 @@ func (db DbProvider) FindItemByItemId(ctx context.Context, ItemId int) (*schema.
 	return &item, nil
 }
 
-func (db DbProvider) GetAllItems(ctx context.Context) ([]*schema.Item, error) {
-	collection := db.client.Database(db.databaseName).Collection(itemCollection)
+func (itemProv ItemDatabaseProvider) FindItemByItemId(ctx context.Context, itemId int) (*schema.Item, error) {
+	findResult, err := itemProv.db.FindOne(ctx, itemProv.collectionName, bson.M{"itemid": itemId})
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	item := schema.Item{}
+	err = findResult.Decode(&item)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	return &item, nil
+}
+
+func (itemProv ItemDatabaseProvider) GetAllItems(ctx context.Context) ([]*schema.Item, error) {
+	collection := itemProv.db.client.Database(itemProv.db.databaseName).Collection(itemProv.collectionName)
 	cursor, err := collection.Find(ctx, bson.M{})
 
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
+	defer func(cursor *mongo.Cursor, ctx context.Context) {
+		err = cursor.Close(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}(cursor, ctx)
 
 	var items []*schema.Item
 	for cursor.Next(ctx) {
-		var item *schema.Item
-		err := cursor.Decode(&item)
+		item := schema.Item{}
+		err = cursor.Decode(&item)
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
 		}
 
-		items = append(items, item)
+		items = append(items, &item)
 	}
 
 	return items, nil
 }
 
-func (db DbProvider) GetItemFromApi(itemId *int) (*schema.Item, error) {
-	//Get different obtain info for item
-	prov := providers.XivApiProvider{}
-
-	//Run the api methods asynchronously
-	gameItemOut := util.Async(func() *xivapi.GameItem {
-		gameItem, err := prov.GetGameItemById(itemId)
-
-		if err != nil {
-			log.Fatal(err)
-			return nil
-		}
-
-		return gameItem
-	})
-
-	//Turn into item object
-	gameItem := <-gameItemOut
-
-	blankItem := xivapi.GameItem{}
-	if *gameItem == blankItem {
-		return nil, errors.New("could not find the item specified")
-	}
-
-	newItem := schema.Item{
-		ItemID:            gameItem.ID,
-		Name:              gameItem.Name,
-		Description:       &gameItem.Description,
-		CanBeHq:           gameItem.CanBeHq == 1,
-		IconID:            gameItem.IconID,
-		SellToVendorValue: &gameItem.PriceMid,
-	}
-
-	//Pass to save method and return result
-	return &newItem, nil
-}
-
-func (db DbProvider) SaveItemFromApi(itemID *int) (*schema.Item, error) {
-	item, err := db.GetItemFromApi(itemID)
-
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
-
-	return db.SaveItem(item)
-}
-
-func (db DbProvider) UpdateVendorSellPrice(itemId *int, newPrice *int) error {
-	collection := db.client.Database(db.databaseName).Collection(itemCollection)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	_, err := collection.UpdateOne(ctx,
+func (itemProv ItemDatabaseProvider) UpdateVendorSellPrice(ctx context.Context, itemId *int, newPrice *int) error {
+	_, err := itemProv.db.UpdateOne(
+		ctx,
+		itemProv.collectionName,
 		bson.M{"itemid": *itemId},
 		bson.D{
-			{"$set", bson.D{{"buyfromvendorvalue", *newPrice}}},
+			{"$set", bson.D{
+				{"buyfromvendorvalue", *newPrice},
+			}},
 		})
 
 	return err

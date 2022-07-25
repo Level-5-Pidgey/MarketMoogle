@@ -8,3 +8,13 @@ type MarketEntry {
     IsCrafted: Boolean!
     RetainerName: String
 }
+
+type MarketHistory {
+    ServerId: Int!
+    Server: String!
+    Quantity: Int!
+    TotalPrice: Int!
+    PricePer: Int!
+    Hq: Boolean!
+    TransactionTime: Timestamp!
+}

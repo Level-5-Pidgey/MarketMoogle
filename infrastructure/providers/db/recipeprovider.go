@@ -7,107 +7,50 @@
 package db
 
 import (
-	"MarketMoogleAPI/core/apitypes/xivapi"
 	schema "MarketMoogleAPI/core/graph/model"
-	"MarketMoogleAPI/core/util"
-	"MarketMoogleAPI/infrastructure/providers"
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"log"
-	"time"
 )
 
-const recipeCollection = "recipes"
-
-func (db DbProvider) CreateRecipesFromApi(itemID *int) (*[]*schema.Recipe, error) {
-	//Get different obtain info for item
-	prov := providers.XivApiProvider{}
-
-	itemRecipeOut := util.Async(func() *xivapi.RecipeLookup {
-		recipe, err := prov.GetRecipeIdByItemId(itemID)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		return recipe
-	})
-
-	//Turn into item object
-	itemRecipe := <-itemRecipeOut
-
-	recipeDict := itemRecipe.GetRecipes()
-	var recipes []*schema.Recipe
-	for key, value := range recipeDict {
-		recipe := value.ConvertToSchemaRecipe(&key)
-		recipes = append(recipes, &recipe)
-	}
-
-	if len(recipes) > 0 {
-		return db.SaveRecipes(&recipes)
-	}
-
-	return &recipes, nil
+type RecipeDatabaseProvider struct {
+	db *DatabaseClient
+	collectionName string
 }
 
-func (db DbProvider) SaveRecipes(input *[]*schema.Recipe) (*[]*schema.Recipe, error) {
-	collection := db.client.Database(db.databaseName).Collection(recipeCollection)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	var inputInterface []interface{}
-	for _, v := range *input {
-		inputInterface = append(inputInterface, v)
+func NewRecipeDatabaseProvider(dbClient *DatabaseClient) *RecipeDatabaseProvider {
+	return &RecipeDatabaseProvider{
+		db: dbClient,
+		collectionName: "recipes",
 	}
+}
 
-	_, err := collection.InsertMany(ctx, inputInterface)
+func (recipeProv RecipeDatabaseProvider) InsertRecipe(ctx context.Context, recipeToAdd *schema.Recipe) (*schema.Recipe, error) {
+	_, err := recipeProv.db.InsertOne(ctx, recipeProv.collectionName, recipeToAdd)
 
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
 
-	return input, nil
+	return recipeToAdd, nil
 }
 
-func (db DbProvider) FindRecipesByItemId(ctx context.Context, ItemId int) ([]*schema.Recipe, error) {
-	collection := db.client.Database(db.databaseName).Collection(recipeCollection)
-	cursor, err := collection.Find(ctx, bson.M{"itemresultid": ItemId})
+func (recipeProv RecipeDatabaseProvider) FindRecipesByItemId(ctx context.Context, itemId int) ([]*schema.Recipe, error) {
+	return recipeProv.findRecipesBy(ctx, bson.M{"itemresultid": itemId})
+}
+
+func (recipeProv RecipeDatabaseProvider) FindRecipeByObjectId(ctx context.Context, objectIdString string) (*schema.Recipe, error) {
+	objectID, err := primitive.ObjectIDFromHex(objectIdString)
 
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
 
-	var recipes []*schema.Recipe
-	for cursor.Next(ctx) {
-		var recipe *schema.Recipe
-		err := cursor.Decode(&recipe)
-		if err != nil {
-			log.Fatal(err)
-			return nil, err
-		}
-
-		recipes = append(recipes, recipe)
-	}
-
-	return recipes, nil
-}
-
-func (db DbProvider) FindRecipeByObjectId(ID string) (*schema.Recipe, error) {
-	objectID, err := primitive.ObjectIDFromHex(ID)
-
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
-
-	collection := db.client.Database(db.databaseName).Collection(db.databaseName)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result := collection.FindOne(ctx, bson.M{"_id": objectID})
+	findResult, err := recipeProv.db.FindOne(ctx, recipeProv.collectionName, bson.M{"_id": objectID})
 
 	if err != nil {
 		log.Fatal(err)
@@ -115,7 +58,7 @@ func (db DbProvider) FindRecipeByObjectId(ID string) (*schema.Recipe, error) {
 	}
 
 	recipe := schema.Recipe{}
-	err = result.Decode(&recipe)
+	err = findResult.Decode(&recipe)
 
 	if err != nil {
 		log.Fatal(err)
@@ -125,25 +68,32 @@ func (db DbProvider) FindRecipeByObjectId(ID string) (*schema.Recipe, error) {
 	return &recipe, nil
 }
 
-func (db DbProvider) GetAllRecipes(ctx context.Context) ([]*schema.Recipe, error) {
-	collection := db.client.Database(db.databaseName).Collection(recipeCollection)
-	cursor, err := collection.Find(ctx, bson.M{})
+func (recipeProv RecipeDatabaseProvider) GetAllRecipes(ctx context.Context) ([]*schema.Recipe, error) {
+	return recipeProv.findRecipesBy(ctx, bson.M{})
+}
 
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
-	}
+func (recipeProv RecipeDatabaseProvider) findRecipesBy(ctx context.Context, filter bson.M) ([]*schema.Recipe, error) {
+	collection := recipeProv.db.client.Database(recipeProv.db.databaseName).Collection(recipeProv.collectionName)
+	cursor, err := collection.Find(ctx, filter)
+
+	defer func(cursor *mongo.Cursor, ctx context.Context) {
+		err = cursor.Close(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}(cursor, ctx)
 
 	var recipes []*schema.Recipe
 	for cursor.Next(ctx) {
-		var recipe *schema.Recipe
-		err := cursor.Decode(&recipe)
+		recipe := schema.Recipe{}
+		err = cursor.Decode(&recipe)
+
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
 		}
 
-		recipes = append(recipes, recipe)
+		recipes = append(recipes, &recipe)
 	}
 
 	return recipes, nil
