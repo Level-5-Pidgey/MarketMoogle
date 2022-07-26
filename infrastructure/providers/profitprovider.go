@@ -55,14 +55,16 @@ func (profitProv ItemProfitProvider) GetItemValue(componentItem *schema.Item, mb
 			cheapestOnMarket = profitProv.GetCheapestOnServer(mbEntry, homeServer)
 		} else if mbEntry.CurrentMinPrice != nil {
 			cheapestOnMarket, homeServer = profitProv.GetCheapestPriceAndServer(mbEntry)
+			
 		}
-
+		
 		//If there are no market entries available, grab the listed average price instead
 		if cheapestOnMarket == profitProv.maxValue {
 			cheapestOnMarket = int(mbEntry.CurrentAveragePrice)
 		}
 
 		itemPrice = cheapestOnMarket
+		serverToBuyOn = homeServer
 	}
 
 	return itemPrice, serverToBuyOn
