@@ -88,7 +88,7 @@ func (p XivApiProvider) GetItems() (*[]int, error) {
 	result := getNonBlankIds(pageContent)
 
 	//Loop through for rest of queries
-	for page = 2; page < pageContent.Pagination.PageTotal; page++ {
+	for page = 2; page <= pageContent.Pagination.PageTotal; page++ {
 		fmt.Printf("API Request : Retrieved Page %d\n", page)
 		pageContent, err := MakePaginatedRequest("Item", &page)
 

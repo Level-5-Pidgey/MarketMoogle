@@ -83,7 +83,7 @@ func main() {
 
 	//If starting the server for the first time, the mongoDB needs to be populated with items and recipes
 	if initDb {
-		//TODO Add creation of indexes
+		//TODO Add automated creation of indexes
 		GenerateMarketboardEntries(mongoDbClient)
 		GenerateGameItems(mongoDbClient)
 		GenerateVendorPrices(mongoDbClient)
@@ -92,7 +92,7 @@ func main() {
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	http.Handle("/query", srv)
 
-	servers := []string {
+	servers := []string{
 		"Ravana",
 		"Sophia",
 		"Sephirot",
@@ -112,7 +112,7 @@ func interval(dbClient *db.DatabaseClient, servers []string, transCount int) {
 		if index > len(servers) {
 			index = 0
 		}
-		
+
 		err := intervalMarketDataUpdate(dbClient, servers[index], transCount)
 
 		if err != nil {
@@ -123,7 +123,7 @@ func interval(dbClient *db.DatabaseClient, servers []string, transCount int) {
 
 func intervalMarketDataUpdate(dbClient *db.DatabaseClient, server string, transCount int) error {
 	dataCenter := "Materia"
-	
+
 	universalisApiProvider := api.UniversalisApiProvider{}
 	marketBoardProvider := db.NewMarketboardDatabaseProvider(dbClient)
 	recentTransactions, err := universalisApiProvider.GetRecentTransactions(server, transCount)
@@ -271,8 +271,8 @@ func GenerateGameItems(dbClient *db.DatabaseClient) {
 		//Create recipe (if there is one) and save to DB
 		itemRecipes, err := xivApiProv.GetRecipeIdByItemId(&itemId)
 
-		if err != nil {
-			log.Fatal(err)
+		if itemRecipes == nil {
+			continue
 		}
 
 		recipeDict := itemRecipes.GetRecipes()
