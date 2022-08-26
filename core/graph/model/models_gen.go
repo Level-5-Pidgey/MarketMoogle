@@ -8,6 +8,15 @@ import (
 	"strconv"
 )
 
+type CraftingLeve struct {
+	LeveID    int         `json:"LeveId"`
+	GilReward int         `json:"GilReward"`
+	ExpReward int         `json:"ExpReward"`
+	QuestName string      `json:"QuestName"`
+	LevelReq  int         `json:"LevelReq"`
+	JobReq    CrafterType `json:"JobReq"`
+}
+
 type Job struct {
 	ID    string `json:"Id"`
 	JobID int    `json:"JobId"`
@@ -44,7 +53,7 @@ type Recipe struct {
 	RecipeID               int               `json:"RecipeId"`
 	ItemResultID           int               `json:"ItemResultId"`
 	ResultQuantity         int               `json:"ResultQuantity"`
-	CraftedBy              CraftType         `json:"CraftedBy"`
+	CraftedBy              CrafterType       `json:"CraftedBy"`
 	RecipeLevel            *int              `json:"RecipeLevel"`
 	MasteryStars           *int              `json:"MasteryStars"`
 	RecipeItems            []*RecipeContents `json:"RecipeItems"`
@@ -53,19 +62,26 @@ type Recipe struct {
 	Durability             *int              `json:"Durability"`
 }
 
-type RecipePurchaseInformation struct {
+type RecipePurchaseInfo struct {
 	Item            *Item  `json:"Item"`
 	ServerToBuyFrom string `json:"ServerToBuyFrom"`
 	BuyFromVendor   bool   `json:"BuyFromVendor"`
-	Quantity        int    `json:"Quantity"`
+	ItemCost        int    `json:"ItemCost"`
 }
 
-type RecipeResaleInformation struct {
-	Profit          int                          `json:"Profit"`
-	ItemsToPurchase []*RecipePurchaseInformation `json:"ItemsToPurchase"`
-	CraftLevel      int                          `json:"CraftLevel"`
-	CraftType       CraftType                    `json:"CraftType"`
-	ItemCost        int                          `json:"ItemCost"`
+type RecipeResaleInfo struct {
+	ResaleInfo *ResaleInfo `json:"ResaleInfo"`
+	CraftLevel int         `json:"CraftLevel"`
+	CraftType  CrafterType `json:"CraftType"`
+}
+
+type ResaleInfo struct {
+	Profit          int                   `json:"Profit"`
+	ItemID          int                   `json:"ItemId"`
+	Quantity        int                   `json:"Quantity"`
+	SingleCost      int                   `json:"SingleCost"`
+	TotalCost       int                   `json:"TotalCost"`
+	ItemsToPurchase []*RecipePurchaseInfo `json:"ItemsToPurchase"`
 }
 
 type User struct {
@@ -87,55 +103,55 @@ type UserInput struct {
 	IsPremium       *bool       `json:"IsPremium"`
 }
 
-type CraftType string
+type CrafterType string
 
 const (
-	CraftTypeCarpenter     CraftType = "CARPENTER"
-	CraftTypeBlacksmith    CraftType = "BLACKSMITH"
-	CraftTypeArmourer      CraftType = "ARMOURER"
-	CraftTypeGoldsmith     CraftType = "GOLDSMITH"
-	CraftTypeLeatherworker CraftType = "LEATHERWORKER"
-	CraftTypeWeaver        CraftType = "WEAVER"
-	CraftTypeAlchemist     CraftType = "ALCHEMIST"
-	CraftTypeCulinarian    CraftType = "CULINARIAN"
+	CrafterTypeCarpenter     CrafterType = "CARPENTER"
+	CrafterTypeBlacksmith    CrafterType = "BLACKSMITH"
+	CrafterTypeArmourer      CrafterType = "ARMOURER"
+	CrafterTypeGoldsmith     CrafterType = "GOLDSMITH"
+	CrafterTypeLeatherworker CrafterType = "LEATHERWORKER"
+	CrafterTypeWeaver        CrafterType = "WEAVER"
+	CrafterTypeAlchemist     CrafterType = "ALCHEMIST"
+	CrafterTypeCulinarian    CrafterType = "CULINARIAN"
 )
 
-var AllCraftType = []CraftType{
-	CraftTypeCarpenter,
-	CraftTypeBlacksmith,
-	CraftTypeArmourer,
-	CraftTypeGoldsmith,
-	CraftTypeLeatherworker,
-	CraftTypeWeaver,
-	CraftTypeAlchemist,
-	CraftTypeCulinarian,
+var AllCrafterType = []CrafterType{
+	CrafterTypeCarpenter,
+	CrafterTypeBlacksmith,
+	CrafterTypeArmourer,
+	CrafterTypeGoldsmith,
+	CrafterTypeLeatherworker,
+	CrafterTypeWeaver,
+	CrafterTypeAlchemist,
+	CrafterTypeCulinarian,
 }
 
-func (e CraftType) IsValid() bool {
+func (e CrafterType) IsValid() bool {
 	switch e {
-	case CraftTypeCarpenter, CraftTypeBlacksmith, CraftTypeArmourer, CraftTypeGoldsmith, CraftTypeLeatherworker, CraftTypeWeaver, CraftTypeAlchemist, CraftTypeCulinarian:
+	case CrafterTypeCarpenter, CrafterTypeBlacksmith, CrafterTypeArmourer, CrafterTypeGoldsmith, CrafterTypeLeatherworker, CrafterTypeWeaver, CrafterTypeAlchemist, CrafterTypeCulinarian:
 		return true
 	}
 	return false
 }
 
-func (e CraftType) String() string {
+func (e CrafterType) String() string {
 	return string(e)
 }
 
-func (e *CraftType) UnmarshalGQL(v interface{}) error {
+func (e *CrafterType) UnmarshalGQL(v interface{}) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
 	}
 
-	*e = CraftType(str)
+	*e = CrafterType(str)
 	if !e.IsValid() {
-		return fmt.Errorf("%s is not a valid CraftType", str)
+		return fmt.Errorf("%s is not a valid CrafterType", str)
 	}
 	return nil
 }
 
-func (e CraftType) MarshalGQL(w io.Writer) {
+func (e CrafterType) MarshalGQL(w io.Writer) {
 	fmt.Fprint(w, strconv.Quote(e.String()))
 }

@@ -7,11 +7,12 @@
 package schema
 
 type Item struct {
-	ItemID             int     `json:"ItemID"`
-	Name               string  `json:"Name"`
-	Description        *string `json:"Description"`
-	CanBeHq            bool    `json:"CanBeHq"`
-	IconID             int     `json:"IconId"`
-	SellToVendorValue  *int    `json:"SellToVendorValue"`
-	BuyFromVendorValue *int    `json:"BuyFromVendorValue"`
+	ItemID             int           `json:"ItemID"`
+	Name               string        `json:"Name"`
+	Description        *string       `json:"Description"`
+	CanBeHq            bool          `json:"CanBeHq"`
+	IconID             int           `json:"IconId"`
+	SellToVendorValue  *int          `json:"SellToVendorValue"`
+	BuyFromVendorValue *int          `json:"BuyFromVendorValue"`
+	AssociatedLeve     *CraftingLeve `json:"CraftingLeve"`
 }

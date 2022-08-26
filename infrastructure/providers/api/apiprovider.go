@@ -17,14 +17,14 @@ import (
 	"reflect"
 )
 
-func MakePaginatedRequest(contentType string, page *int) (*xivapi.PaginatedContent, error) {
-	url := fmt.Sprintf("https://xivapi.com/%s?page=%d", contentType, *page)
+func MakePaginatedRequest(contentType string, page int) (*xivapi.PaginatedContent, error) {
+	url := fmt.Sprintf("https://xivapi.com/%s?page=%d", contentType, page)
 
 	return MakeApiRequest[xivapi.PaginatedContent](url)
 }
 
-func MakeXivApiContentRequest[T any](contentType string, id *int) (*T, error) {
-	url := fmt.Sprintf("https://xivapi.com/%s/%d", contentType, *id)
+func MakeXivApiContentRequest[T any](contentType string, id int) (*T, error) {
+	url := fmt.Sprintf("https://xivapi.com/%s/%d", contentType, id)
 
 	return MakeApiRequest[T](url)
 }

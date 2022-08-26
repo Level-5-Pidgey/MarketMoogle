@@ -4,7 +4,7 @@
  * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
  */
 
-package db
+package database
 
 import (
 	"MarketMoogleAPI/core/apitypes/universalis"
@@ -106,12 +106,12 @@ func (mbProv MarketboardDatabaseProvider) FindItemEntryOnDc(ctx context.Context,
 			return nil, err
 		}
 	}
-	
+
 	//Return nil if nothing was found
 	if marketEntry.ItemID == 0 {
 		return nil, nil
 	}
-	
+
 	return &marketEntry, nil
 }
 

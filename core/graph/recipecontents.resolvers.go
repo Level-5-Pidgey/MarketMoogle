@@ -6,7 +6,7 @@ package graph
 import (
 	generated "MarketMoogleAPI/core/graph/gen"
 	schema "MarketMoogleAPI/core/graph/model"
-	"MarketMoogleAPI/infrastructure/providers/db"
+	"MarketMoogleAPI/infrastructure/providers/database"
 	"context"
 	"fmt"
 )
@@ -35,15 +35,15 @@ func (r *recipeContentsResolver) Item(ctx context.Context, obj *schema.RecipeCon
 
 // RecipeContents returns generated.RecipeContentsResolver implementation.
 func (r *Resolver) RecipeContents() generated.RecipeContentsResolver {
-	iProv := db.NewItemDataBaseProvider(r.DbClient)
-	
+	iProv := database.NewItemDataBaseProvider(r.DbClient)
+
 	return &recipeContentsResolver{
-		Resolver: 	r,
-		itemProv:   iProv,
+		Resolver: r,
+		itemProv: iProv,
 	}
 }
 
-type recipeContentsResolver struct{ 
+type recipeContentsResolver struct {
 	*Resolver
-	itemProv   *db.ItemDatabaseProvider
+	itemProv *database.ItemDatabaseProvider
 }

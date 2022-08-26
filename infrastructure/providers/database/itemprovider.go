@@ -4,7 +4,7 @@
  * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
  */
 
-package db
+package database
 
 import (
 	schema "MarketMoogleAPI/core/graph/model"
@@ -16,13 +16,13 @@ import (
 )
 
 type ItemDatabaseProvider struct {
-	db *DatabaseClient
+	db             *DatabaseClient
 	collectionName string
 }
 
 func NewItemDataBaseProvider(dbClient *DatabaseClient) *ItemDatabaseProvider {
 	return &ItemDatabaseProvider{
-		db: dbClient,
+		db:             dbClient,
 		collectionName: "items",
 	}
 }
@@ -109,14 +109,28 @@ func (itemProv ItemDatabaseProvider) GetAllItems(ctx context.Context) ([]*schema
 	return items, nil
 }
 
-func (itemProv ItemDatabaseProvider) UpdateVendorSellPrice(ctx context.Context, itemId *int, newPrice *int) error {
+func (itemProv ItemDatabaseProvider) UpdateVendorSellPrice(ctx context.Context, itemId int, newPrice int) error {
 	_, err := itemProv.db.UpdateOne(
 		ctx,
 		itemProv.collectionName,
-		bson.M{"itemid": *itemId},
+		bson.M{"itemid": itemId},
 		bson.D{
 			{"$set", bson.D{
-				{"buyfromvendorvalue", *newPrice},
+				{"buyfromvendorvalue", newPrice},
+			}},
+		})
+
+	return err
+}
+
+func (itemProv ItemDatabaseProvider) UpdateLevequestInfo(ctx context.Context, itemId int, leve schema.CraftingLeve) error {
+	_, err := itemProv.db.UpdateOne(
+		ctx,
+		itemProv.collectionName,
+		bson.M{"itemid": itemId},
+		bson.D{
+			{"$set", bson.D{
+				{"associatedleve", leve},
 			}},
 		})
 

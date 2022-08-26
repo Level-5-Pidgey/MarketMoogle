@@ -4,7 +4,7 @@
  * Please see the "LICENSE" file within MarketMoogleAPI to view the full license. This file, and all code within MarketMoogleAPI fall under the GNU General Public License.
  */
 
-package business
+package Business
 
 import (
 	schema "MarketMoogleAPI/core/graph/model"
@@ -12,10 +12,10 @@ import (
 )
 
 type ProfitCalculator interface {
-	GetItemValue(componentItem *schema.Item, mbEntry *schema.MarketboardEntry, homeServer string, buyFromOtherServers *bool) (int, string)
-	GetVendorResaleProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error)
-	GetCraftingProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string, buyCrystals *bool, buyFromOtherServers *bool) (*schema.RecipeResaleInformation, error)
-	GetCrossDcResaleProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error)
-	GetCheapestOnServer(entry *schema.MarketboardEntry, server string) int
-	GetCheapestPriceAndServer(entry *schema.MarketboardEntry) (int, string)
+	GetVendorFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error)
+	GetResaleInfoForItem(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string, buyCrystals *bool, buyFromOtherServers *bool) (*schema.RecipeResaleInfo, error)
+	GetCrossDcResaleProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ResaleInfo, error)
+	GetCheapestOnServer(entry *schema.MarketboardEntry, server string) *schema.MarketEntry
+	GetRecipePurchaseInfo(componentItem *schema.Item, mbEntry *schema.MarketboardEntry, homeServer string, buyFromOtherServers *bool) *schema.RecipePurchaseInfo
+	GetCheapestOnDc(entry *schema.MarketboardEntry) *schema.MarketEntry
 }

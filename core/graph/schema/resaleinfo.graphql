@@ -1,0 +1,16 @@
+
+type ResaleInfo {
+    Profit: Int!
+    ItemId: Int!
+    Quantity: Int!
+    SingleCost: Int!
+    TotalCost: Int!
+    ItemsToPurchase: [RecipePurchaseInfo!]!
+}
+
+type RecipePurchaseInfo {
+    Item: Item!
+    ServerToBuyFrom: String!
+    BuyFromVendor: Boolean!
+    ItemCost: Int!
+}

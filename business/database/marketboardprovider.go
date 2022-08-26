@@ -4,7 +4,7 @@
  * Please see the "LICENSE" file within MarketMoogleAPI to view the full license. This file, and all code within MarketMoogleAPI fall under the GNU General Public License.
  */
 
-package db
+package database
 
 import (
 	"MarketMoogleAPI/core/apitypes/universalis"
@@ -14,9 +14,9 @@ import (
 
 type MarketBoardProvider interface {
 	CreateMarketEntry(ctx context.Context, entryFromApi *schema.MarketboardEntry) (*schema.MarketboardEntry, error)
-	ReplaceMarketEntry(ctx context.Context, itemId *int, dataCenter *string, newEntry *universalis.MarketQuery, currentTimestamp *string) error
-	FindMarketboardEntryByObjectId(ctx context.Context, ID string) (*schema.MarketboardEntry, error)
+	ReplaceMarketEntry(ctx context.Context, itemId int, dataCenter string, newEntry *universalis.MarketQuery, currentTimestamp *string) error
+	FindMarketboardEntryByObjectId(ctx context.Context, objectId string) (*schema.MarketboardEntry, error)
 	FindMarketboardEntriesByItemId(ctx context.Context, itemId int) ([]*schema.MarketboardEntry, error)
-	FindItemEntryOnDc(ctx context.Context, itemId *int, dataCenter *string) (*schema.MarketboardEntry, error)
+	FindItemEntryOnDc(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error)
 	GetAllMarketboardEntries(ctx context.Context) ([]*schema.MarketboardEntry, error)
 }

@@ -72,8 +72,7 @@ type ItemsAndQuant struct {
 	Quantity int
 }
 
-func (r ClassRecipe) ConvertToSchemaRecipe(craftType *schema.CraftType) schema.Recipe {
-
+func (r ClassRecipe) ConvertToSchemaRecipe(craftType *schema.CrafterType) schema.Recipe {
 	var items []*schema.RecipeContents
 	for _, itemAndQuant := range r.GetRecipeItemsAndQuant() {
 		contents := schema.RecipeContents{

@@ -12,12 +12,13 @@ import (
 	schema "MarketMoogleAPI/core/graph/model"
 	"MarketMoogleAPI/core/util"
 	"MarketMoogleAPI/infrastructure/providers/api"
-	"MarketMoogleAPI/infrastructure/providers/db"
+	"MarketMoogleAPI/infrastructure/providers/database"
 	"context"
 	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
 	_ "github.com/go-sql-driver/mysql"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/http"
@@ -70,7 +71,7 @@ func main() {
 
 	uri := fmt.Sprintf("mongodb://%s:%s", hostname, mongoPort)
 
-	mongoDbClient := db.NewDatabaseClient(dbName, uri, credentials)
+	mongoDbClient := database.NewDatabaseClient(dbName, uri, credentials)
 
 	srv := handler.NewDefaultServer(
 		internalGen.NewExecutableSchema(
@@ -83,10 +84,11 @@ func main() {
 
 	//If starting the server for the first time, the mongoDB needs to be populated with items and recipes
 	if initDb {
-		//TODO Add automated creation of indexes
+		CreateDatabaseIndexes(mongoDbClient)
 		GenerateMarketboardEntries(mongoDbClient)
 		GenerateGameItems(mongoDbClient)
 		GenerateVendorPrices(mongoDbClient)
+		GenerateLeveItems(mongoDbClient)
 	}
 
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
@@ -106,7 +108,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
-func interval(dbClient *db.DatabaseClient, servers []string, transCount int) {
+func interval(dbClient *database.DatabaseClient, servers []string, transCount int) {
 	index := 0
 	for range time.Tick(time.Minute * 5) {
 		if index > len(servers) {
@@ -121,11 +123,11 @@ func interval(dbClient *db.DatabaseClient, servers []string, transCount int) {
 	}
 }
 
-func intervalMarketDataUpdate(dbClient *db.DatabaseClient, server string, transCount int) error {
+func intervalMarketDataUpdate(dbClient *database.DatabaseClient, server string, transCount int) error {
 	dataCenter := "Materia"
 
 	universalisApiProvider := api.UniversalisApiProvider{}
-	marketBoardProvider := db.NewMarketboardDatabaseProvider(dbClient)
+	marketBoardProvider := database.NewMarketboardDatabaseProvider(dbClient)
 	recentTransactions, err := universalisApiProvider.GetRecentTransactions(server, transCount)
 
 	if err != nil {
@@ -183,9 +185,47 @@ func intervalMarketDataUpdate(dbClient *db.DatabaseClient, server string, transC
 	return nil
 }
 
-func GenerateMarketboardEntries(dbClient *db.DatabaseClient) {
+func CreateDatabaseIndexes(client *database.DatabaseClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	err := client.CreateIndex(
+		ctx,
+		"items",
+		bson.M{"itemid": 1},
+		&options.IndexOptions{Name: util.StringPointer("itemid_index"), Unique: util.BoolPointer(true)},
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = client.CreateIndex(
+		ctx,
+		"marketboard",
+		bson.D{{Key: "itemid", Value: 1}, {Key: "datacenter", Value: 1}},
+		&options.IndexOptions{Name: util.StringPointer("itemid_and_datacenter_index"), Unique: util.BoolPointer(true)},
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = client.CreateIndex(
+		ctx,
+		"recipes",
+		bson.M{"itemresultid": 1},
+		&options.IndexOptions{Name: util.StringPointer("itemresult_index"), Unique: util.BoolPointer(false)},
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func GenerateMarketboardEntries(dbClient *database.DatabaseClient) {
 	universalisApiProvider := api.UniversalisApiProvider{}
-	marketBoardProvider := db.NewMarketboardDatabaseProvider(dbClient)
+	marketBoardProvider := database.NewMarketboardDatabaseProvider(dbClient)
 	marketableItems, err := universalisApiProvider.GetMarketableItems()
 
 	if err != nil {
@@ -228,10 +268,10 @@ func GenerateMarketboardEntries(dbClient *db.DatabaseClient) {
 	}
 }
 
-func GenerateGameItems(dbClient *db.DatabaseClient) {
+func GenerateGameItems(dbClient *database.DatabaseClient) {
 	xivApiProv := api.XivApiProvider{}
-	itemProv := db.NewItemDataBaseProvider(dbClient)
-	recipeProv := db.NewRecipeDatabaseProvider(dbClient)
+	itemProv := database.NewItemDataBaseProvider(dbClient)
+	recipeProv := database.NewRecipeDatabaseProvider(dbClient)
 
 	//Load up all items to add to DB
 	allItems, err := xivApiProv.GetItems()
@@ -250,7 +290,7 @@ func GenerateGameItems(dbClient *db.DatabaseClient) {
 			continue
 		}
 
-		gameItem, err := xivApiProv.GetGameItemById(&itemId)
+		gameItem, err := xivApiProv.GetGameItemById(itemId)
 
 		if err != nil {
 			log.Fatal(err)
@@ -262,14 +302,14 @@ func GenerateGameItems(dbClient *db.DatabaseClient) {
 			Description:        &gameItem.Description,
 			CanBeHq:            gameItem.CanBeHq == 1,
 			IconID:             gameItem.IconID,
-			SellToVendorValue:  &gameItem.PriceMid,
+			SellToVendorValue:  &gameItem.PriceLow,
 			BuyFromVendorValue: nil, //This will be added later
 		}
 
 		_, err = itemProv.InsertItem(ctx, &newItem)
 
 		//Create recipe (if there is one) and save to DB
-		itemRecipes, err := xivApiProv.GetRecipeIdByItemId(&itemId)
+		itemRecipes, err := xivApiProv.GetRecipeIdByItemId(itemId)
 
 		if itemRecipes == nil {
 			continue
@@ -294,9 +334,69 @@ func GenerateGameItems(dbClient *db.DatabaseClient) {
 	}
 }
 
-func GenerateVendorPrices(dbClient *db.DatabaseClient) {
+func classNameToEnum(classJob string) schema.CrafterType {
+	switch classJob {
+	case "CRP":
+		return schema.CrafterTypeCarpenter
+	case "BSM":
+		return schema.CrafterTypeBlacksmith
+	case "ARM":
+		return schema.CrafterTypeArmourer
+	case "GSM":
+		return schema.CrafterTypeGoldsmith
+	case "LTW":
+		return schema.CrafterTypeLeatherworker
+	case "WVR":
+		return schema.CrafterTypeWeaver
+	case "ALC":
+		return schema.CrafterTypeAlchemist
+	case "CUL":
+		return schema.CrafterTypeCulinarian
+	default:
+		return schema.CrafterType("")
+	}
+}
+
+func GenerateLeveItems(dbClient *database.DatabaseClient) {
 	xivApiProvider := api.XivApiProvider{}
-	itemProv := db.NewItemDataBaseProvider(dbClient)
+	itemProv := database.NewItemDataBaseProvider(dbClient)
+
+	allLeves, err := xivApiProvider.GetCraftLeves()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	for _, leveId := range *allLeves {
+		craftLeve, err := xivApiProvider.GetLeveById(leveId)
+
+		if err != nil {
+			leveSchema := schema.CraftingLeve{
+				LeveID:    craftLeve.Leve.ID,
+				GilReward: craftLeve.Leve.GilReward,
+				ExpReward: craftLeve.Leve.ExpReward,
+				QuestName: craftLeve.Leve.Name,
+				LevelReq:  craftLeve.Leve.ClassJobLevel,
+				JobReq:    classNameToEnum(craftLeve.Leve.ClassJobCategory.Name),
+			}
+
+			err = itemProv.UpdateLevequestInfo(ctx, craftLeve.Item0.ID, leveSchema)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			log.Fatal(err)
+		}
+	}
+}
+
+func GenerateVendorPrices(dbClient *database.DatabaseClient) {
+	xivApiProvider := api.XivApiProvider{}
+	itemProv := database.NewItemDataBaseProvider(dbClient)
 
 	allShops, err := xivApiProvider.GetShops()
 
@@ -308,10 +408,10 @@ func GenerateVendorPrices(dbClient *db.DatabaseClient) {
 	defer cancel()
 
 	for _, shopId := range *allShops {
-		shopItemsAndPrices, err := xivApiProvider.GetItemsAndPrices(&shopId)
+		shopItemsAndPrices, err := xivApiProvider.GetItemsAndPrices(shopId)
 
 		for itemId, price := range shopItemsAndPrices {
-			err = itemProv.UpdateVendorSellPrice(ctx, &itemId, &price)
+			err = itemProv.UpdateVendorSellPrice(ctx, itemId, price)
 
 			if err != nil {
 				log.Fatal(err)

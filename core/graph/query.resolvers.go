@@ -6,7 +6,7 @@ package graph
 import (
 	generated "MarketMoogleAPI/core/graph/gen"
 	schema "MarketMoogleAPI/core/graph/model"
-	"MarketMoogleAPI/infrastructure/providers/db"
+	"MarketMoogleAPI/infrastructure/providers/database"
 	"context"
 	"fmt"
 )
@@ -55,15 +55,15 @@ func (r *queryResolver) GetRecipesForItem(ctx context.Context, itemID int) ([]*s
 func (r *Resolver) Query() generated.QueryResolver {
 	return &queryResolver{
 		Resolver:   r,
-		recipeProv: db.NewRecipeDatabaseProvider(r.DbClient),
-		mbProv:     db.NewMarketboardDatabaseProvider(r.DbClient),
-		itemProv:   db.NewItemDataBaseProvider(r.DbClient),
+		recipeProv: database.NewRecipeDatabaseProvider(r.DbClient),
+		mbProv:     database.NewMarketboardDatabaseProvider(r.DbClient),
+		itemProv:   database.NewItemDataBaseProvider(r.DbClient),
 	}
 }
 
 type queryResolver struct {
 	*Resolver
-	recipeProv *db.RecipeDatabaseProvider
-	mbProv     *db.MarketboardDatabaseProvider
-	itemProv   *db.ItemDatabaseProvider
+	recipeProv *database.RecipeDatabaseProvider
+	mbProv     *database.MarketboardDatabaseProvider
+	itemProv   *database.ItemDatabaseProvider
 }

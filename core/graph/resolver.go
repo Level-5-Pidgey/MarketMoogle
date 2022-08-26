@@ -7,13 +7,13 @@
 package graph
 
 import (
-	"MarketMoogleAPI/infrastructure/providers/db"
+	"MarketMoogleAPI/infrastructure/providers/database"
 )
 
 // This file will not be regenerated automatically.
 //
 // It serves as dependency injection for your app, add any dependencies you require here.
 
-type Resolver struct{
-	DbClient *db.DatabaseClient
+type Resolver struct {
+	DbClient *database.DatabaseClient
 }

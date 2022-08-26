@@ -1,5 +1,5 @@
 
-enum CraftType {
+enum CrafterType {
     CARPENTER
     BLACKSMITH
     ARMOURER

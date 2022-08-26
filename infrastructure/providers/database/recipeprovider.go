@@ -4,7 +4,7 @@
  * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
  */
 
-package db
+package database
 
 import (
 	schema "MarketMoogleAPI/core/graph/model"
@@ -16,13 +16,13 @@ import (
 )
 
 type RecipeDatabaseProvider struct {
-	db *DatabaseClient
+	db             *DatabaseClient
 	collectionName string
 }
 
 func NewRecipeDatabaseProvider(dbClient *DatabaseClient) *RecipeDatabaseProvider {
 	return &RecipeDatabaseProvider{
-		db: dbClient,
+		db:             dbClient,
 		collectionName: "recipes",
 	}
 }

@@ -29,5 +29,6 @@ type GameItem struct {
 	Rarity                     int    `json:"Rarity"`
 	StackSize                  int    `json:"StackSize"`
 	PriceMid                   int    `json:"PriceMid"`
+	PriceLow                   int    `json:"PriceLow"`
 	Description                string `json:"Description"`
 }

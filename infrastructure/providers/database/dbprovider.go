@@ -4,7 +4,7 @@
  * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
  */
 
-package db
+package database
 
 import (
 	"context"
@@ -12,13 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
-	"sync"
 	"time"
 )
-
-var onceClient sync.Once
-var clientErr error
-var client *mongo.Client
 
 type DatabaseClient struct {
 	client        *mongo.Client
@@ -39,7 +34,7 @@ func NewDatabaseClient(dbName string, uri string, credentials options.Credential
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	//Verify connection
 	err = clientConnection.Ping(context.TODO(), nil)
 	if err != nil {
@@ -145,4 +140,15 @@ func (dbClient DatabaseClient) ReplaceOne(ctx context.Context, collectionName st
 	}
 
 	return res, nil
+}
+
+func (dbClient DatabaseClient) CreateIndex(ctx context.Context, collectionName string, keys interface{}, opts *options.IndexOptions) error {
+	model := mongo.IndexModel{
+		Keys:    keys,
+		Options: opts,
+	}
+	
+	_, err := dbClient.client.Database(dbClient.databaseName).Collection(collectionName).Indexes().CreateOne(ctx, model)
+	
+	return err
 }

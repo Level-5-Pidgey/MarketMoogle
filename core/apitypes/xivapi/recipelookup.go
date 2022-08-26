@@ -30,54 +30,54 @@ type RecipeLookup struct {
 	WVRTargetID int         `json:"WVRTargetID"`
 }
 
-func (r RecipeLookup) GetRecipes() map[schema.CraftType]ClassRecipe {
-	result := make(map[schema.CraftType]ClassRecipe)
+func (r RecipeLookup) GetRecipes() map[schema.CrafterType]ClassRecipe {
+	result := make(map[schema.CrafterType]ClassRecipe)
 
 	//Alchemist
 	if r.ALCTargetID != 0 {
-		result[schema.CraftTypeAlchemist] = r.ALC
+		result[schema.CrafterTypeAlchemist] = r.ALC
 	}
 
 	//Armourer
 	if r.ARMTargetID != 0 {
-		result[schema.CraftTypeArmourer] = r.ARM
+		result[schema.CrafterTypeArmourer] = r.ARM
 	}
 
 	//Blacksmith
 	if r.BSMTargetID != 0 {
-		result[schema.CraftTypeBlacksmith] = r.BSM
+		result[schema.CrafterTypeBlacksmith] = r.BSM
 	}
 
 	//Carpenter
 	if r.CRPTargetID != 0 {
-		result[schema.CraftTypeCarpenter] = r.CRP
+		result[schema.CrafterTypeCarpenter] = r.CRP
 	}
 
 	//Culinarian
 	if r.CULTargetID != 0 {
-		result[schema.CraftTypeCulinarian] = r.CUL
+		result[schema.CrafterTypeCulinarian] = r.CUL
 	}
 
 	//Goldsmith
 	if r.GSMTargetID != 0 {
-		result[schema.CraftTypeGoldsmith] = r.GSM
+		result[schema.CrafterTypeGoldsmith] = r.GSM
 	}
 
 	//Leatherworker
 	if r.LTWTargetID != 0 {
-		result[schema.CraftTypeLeatherworker] = r.LTW
+		result[schema.CrafterTypeLeatherworker] = r.LTW
 	}
 
 	//Weaver
 	if r.WVRTargetID != 0 {
-		result[schema.CraftTypeWeaver] = r.WVR
+		result[schema.CrafterTypeWeaver] = r.WVR
 	}
 
 	return result
 }
 
-func (r RecipeLookup) GetRecipeItems() map[schema.CraftType][]ItemsAndQuant {
-	result := make(map[schema.CraftType][]ItemsAndQuant)
+func (r RecipeLookup) GetRecipeItems() map[schema.CrafterType][]ItemsAndQuant {
+	result := make(map[schema.CrafterType][]ItemsAndQuant)
 
 	//Iterate through map and then get all
 	recipes := r.GetRecipes()

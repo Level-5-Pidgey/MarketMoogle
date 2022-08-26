@@ -46,19 +46,30 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	CraftingLeve struct {
+		ExpReward func(childComplexity int) int
+		GilReward func(childComplexity int) int
+		JobReq    func(childComplexity int) int
+		LeveID    func(childComplexity int) int
+		LevelReq  func(childComplexity int) int
+		QuestName func(childComplexity int) int
+	}
+
 	Item struct {
+		AssociatedLeve     func(childComplexity int) int
 		BuyFromVendorValue func(childComplexity int) int
 		CanBeHq            func(childComplexity int) int
+		DcFlipProfit       func(childComplexity int, dataCenter string, homeServer string) int
 		Description        func(childComplexity int) int
 		IconID             func(childComplexity int) int
 		ItemID             func(childComplexity int) int
+		LeveProfit         func(childComplexity int, dataCenter string, homeServer string, buyFromOtherSevers *bool) int
 		MarketboardEntries func(childComplexity int) int
 		Name               func(childComplexity int) int
-		RecipeResaleValue  func(childComplexity int, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) int
+		RecipeProfit       func(childComplexity int, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) int
 		Recipes            func(childComplexity int) int
-		ResaleValue        func(childComplexity int, dataCenter string, homeServer string) int
 		SellToVendorValue  func(childComplexity int) int
-		VendorResaleValue  func(childComplexity int, dataCenter string, homeServer string) int
+		VendorFlipProfit   func(childComplexity int, dataCenter string, homeServer string) int
 	}
 
 	Job struct {
@@ -136,19 +147,26 @@ type ComplexityRoot struct {
 		Item  func(childComplexity int) int
 	}
 
-	RecipePurchaseInformation struct {
+	RecipePurchaseInfo struct {
 		BuyFromVendor   func(childComplexity int) int
 		Item            func(childComplexity int) int
-		Quantity        func(childComplexity int) int
+		ItemCost        func(childComplexity int) int
 		ServerToBuyFrom func(childComplexity int) int
 	}
 
-	RecipeResaleInformation struct {
-		CraftLevel      func(childComplexity int) int
-		CraftType       func(childComplexity int) int
-		ItemCost        func(childComplexity int) int
+	RecipeResaleInfo struct {
+		CraftLevel func(childComplexity int) int
+		CraftType  func(childComplexity int) int
+		ResaleInfo func(childComplexity int) int
+	}
+
+	ResaleInfo struct {
+		ItemID          func(childComplexity int) int
 		ItemsToPurchase func(childComplexity int) int
 		Profit          func(childComplexity int) int
+		Quantity        func(childComplexity int) int
+		SingleCost      func(childComplexity int) int
+		TotalCost       func(childComplexity int) int
 	}
 
 	User struct {
@@ -166,9 +184,11 @@ type ItemResolver interface {
 	Recipes(ctx context.Context, obj *schema.Item) ([]*schema.Recipe, error)
 
 	MarketboardEntries(ctx context.Context, obj *schema.Item) ([]*schema.MarketboardEntry, error)
-	ResaleValue(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error)
-	VendorResaleValue(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error)
-	RecipeResaleValue(ctx context.Context, obj *schema.Item, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) (*schema.RecipeResaleInformation, error)
+
+	LeveProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string, buyFromOtherSevers *bool) (*schema.ResaleInfo, error)
+	DcFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ResaleInfo, error)
+	VendorFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ResaleInfo, error)
+	RecipeProfit(ctx context.Context, obj *schema.Item, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) (*schema.RecipeResaleInfo, error)
 }
 type MutationResolver interface {
 	CreateUser(ctx context.Context, lodestoneID *int) (*schema.User, error)
@@ -204,6 +224,55 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	_ = ec
 	switch typeName + "." + field {
 
+	case "CraftingLeve.ExpReward":
+		if e.complexity.CraftingLeve.ExpReward == nil {
+			break
+		}
+
+		return e.complexity.CraftingLeve.ExpReward(childComplexity), true
+
+	case "CraftingLeve.GilReward":
+		if e.complexity.CraftingLeve.GilReward == nil {
+			break
+		}
+
+		return e.complexity.CraftingLeve.GilReward(childComplexity), true
+
+	case "CraftingLeve.JobReq":
+		if e.complexity.CraftingLeve.JobReq == nil {
+			break
+		}
+
+		return e.complexity.CraftingLeve.JobReq(childComplexity), true
+
+	case "CraftingLeve.LeveId":
+		if e.complexity.CraftingLeve.LeveID == nil {
+			break
+		}
+
+		return e.complexity.CraftingLeve.LeveID(childComplexity), true
+
+	case "CraftingLeve.LevelReq":
+		if e.complexity.CraftingLeve.LevelReq == nil {
+			break
+		}
+
+		return e.complexity.CraftingLeve.LevelReq(childComplexity), true
+
+	case "CraftingLeve.QuestName":
+		if e.complexity.CraftingLeve.QuestName == nil {
+			break
+		}
+
+		return e.complexity.CraftingLeve.QuestName(childComplexity), true
+
+	case "Item.AssociatedLeve":
+		if e.complexity.Item.AssociatedLeve == nil {
+			break
+		}
+
+		return e.complexity.Item.AssociatedLeve(childComplexity), true
+
 	case "Item.BuyFromVendorValue":
 		if e.complexity.Item.BuyFromVendorValue == nil {
 			break
@@ -217,6 +286,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Item.CanBeHq(childComplexity), true
+
+	case "Item.DcFlipProfit":
+		if e.complexity.Item.DcFlipProfit == nil {
+			break
+		}
+
+		args, err := ec.field_Item_DcFlipProfit_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Item.DcFlipProfit(childComplexity, args["DataCenter"].(string), args["HomeServer"].(string)), true
 
 	case "Item.Description":
 		if e.complexity.Item.Description == nil {
@@ -239,6 +320,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Item.ItemID(childComplexity), true
 
+	case "Item.LeveProfit":
+		if e.complexity.Item.LeveProfit == nil {
+			break
+		}
+
+		args, err := ec.field_Item_LeveProfit_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Item.LeveProfit(childComplexity, args["DataCenter"].(string), args["HomeServer"].(string), args["BuyFromOtherSevers"].(*bool)), true
+
 	case "Item.MarketboardEntries":
 		if e.complexity.Item.MarketboardEntries == nil {
 			break
@@ -253,17 +346,17 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Item.Name(childComplexity), true
 
-	case "Item.RecipeResaleValue":
-		if e.complexity.Item.RecipeResaleValue == nil {
+	case "Item.RecipeProfit":
+		if e.complexity.Item.RecipeProfit == nil {
 			break
 		}
 
-		args, err := ec.field_Item_RecipeResaleValue_args(context.TODO(), rawArgs)
+		args, err := ec.field_Item_RecipeProfit_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Item.RecipeResaleValue(childComplexity, args["BuyFromOtherSevers"].(*bool), args["BuyCrystals"].(*bool), args["DataCenter"].(string), args["HomeServer"].(string)), true
+		return e.complexity.Item.RecipeProfit(childComplexity, args["BuyFromOtherSevers"].(*bool), args["BuyCrystals"].(*bool), args["DataCenter"].(string), args["HomeServer"].(string)), true
 
 	case "Item.Recipes":
 		if e.complexity.Item.Recipes == nil {
@@ -272,18 +365,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Item.Recipes(childComplexity), true
 
-	case "Item.ResaleValue":
-		if e.complexity.Item.ResaleValue == nil {
-			break
-		}
-
-		args, err := ec.field_Item_ResaleValue_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Item.ResaleValue(childComplexity, args["DataCenter"].(string), args["HomeServer"].(string)), true
-
 	case "Item.SellToVendorValue":
 		if e.complexity.Item.SellToVendorValue == nil {
 			break
@@ -291,17 +372,17 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Item.SellToVendorValue(childComplexity), true
 
-	case "Item.VendorResaleValue":
-		if e.complexity.Item.VendorResaleValue == nil {
+	case "Item.VendorFlipProfit":
+		if e.complexity.Item.VendorFlipProfit == nil {
 			break
 		}
 
-		args, err := ec.field_Item_VendorResaleValue_args(context.TODO(), rawArgs)
+		args, err := ec.field_Item_VendorFlipProfit_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Item.VendorResaleValue(childComplexity, args["DataCenter"].(string), args["HomeServer"].(string)), true
+		return e.complexity.Item.VendorFlipProfit(childComplexity, args["DataCenter"].(string), args["HomeServer"].(string)), true
 
 	case "Job.Id":
 		if e.complexity.Job.ID == nil {
@@ -695,68 +776,96 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.RecipeContents.Item(childComplexity), true
 
-	case "RecipePurchaseInformation.BuyFromVendor":
-		if e.complexity.RecipePurchaseInformation.BuyFromVendor == nil {
+	case "RecipePurchaseInfo.BuyFromVendor":
+		if e.complexity.RecipePurchaseInfo.BuyFromVendor == nil {
 			break
 		}
 
-		return e.complexity.RecipePurchaseInformation.BuyFromVendor(childComplexity), true
+		return e.complexity.RecipePurchaseInfo.BuyFromVendor(childComplexity), true
 
-	case "RecipePurchaseInformation.Item":
-		if e.complexity.RecipePurchaseInformation.Item == nil {
+	case "RecipePurchaseInfo.Item":
+		if e.complexity.RecipePurchaseInfo.Item == nil {
 			break
 		}
 
-		return e.complexity.RecipePurchaseInformation.Item(childComplexity), true
+		return e.complexity.RecipePurchaseInfo.Item(childComplexity), true
 
-	case "RecipePurchaseInformation.Quantity":
-		if e.complexity.RecipePurchaseInformation.Quantity == nil {
+	case "RecipePurchaseInfo.ItemCost":
+		if e.complexity.RecipePurchaseInfo.ItemCost == nil {
 			break
 		}
 
-		return e.complexity.RecipePurchaseInformation.Quantity(childComplexity), true
+		return e.complexity.RecipePurchaseInfo.ItemCost(childComplexity), true
 
-	case "RecipePurchaseInformation.ServerToBuyFrom":
-		if e.complexity.RecipePurchaseInformation.ServerToBuyFrom == nil {
+	case "RecipePurchaseInfo.ServerToBuyFrom":
+		if e.complexity.RecipePurchaseInfo.ServerToBuyFrom == nil {
 			break
 		}
 
-		return e.complexity.RecipePurchaseInformation.ServerToBuyFrom(childComplexity), true
+		return e.complexity.RecipePurchaseInfo.ServerToBuyFrom(childComplexity), true
 
-	case "RecipeResaleInformation.CraftLevel":
-		if e.complexity.RecipeResaleInformation.CraftLevel == nil {
+	case "RecipeResaleInfo.CraftLevel":
+		if e.complexity.RecipeResaleInfo.CraftLevel == nil {
 			break
 		}
 
-		return e.complexity.RecipeResaleInformation.CraftLevel(childComplexity), true
+		return e.complexity.RecipeResaleInfo.CraftLevel(childComplexity), true
 
-	case "RecipeResaleInformation.CraftType":
-		if e.complexity.RecipeResaleInformation.CraftType == nil {
+	case "RecipeResaleInfo.CraftType":
+		if e.complexity.RecipeResaleInfo.CraftType == nil {
 			break
 		}
 
-		return e.complexity.RecipeResaleInformation.CraftType(childComplexity), true
+		return e.complexity.RecipeResaleInfo.CraftType(childComplexity), true
 
-	case "RecipeResaleInformation.ItemCost":
-		if e.complexity.RecipeResaleInformation.ItemCost == nil {
+	case "RecipeResaleInfo.ResaleInfo":
+		if e.complexity.RecipeResaleInfo.ResaleInfo == nil {
 			break
 		}
 
-		return e.complexity.RecipeResaleInformation.ItemCost(childComplexity), true
+		return e.complexity.RecipeResaleInfo.ResaleInfo(childComplexity), true
 
-	case "RecipeResaleInformation.ItemsToPurchase":
-		if e.complexity.RecipeResaleInformation.ItemsToPurchase == nil {
+	case "ResaleInfo.ItemId":
+		if e.complexity.ResaleInfo.ItemID == nil {
 			break
 		}
 
-		return e.complexity.RecipeResaleInformation.ItemsToPurchase(childComplexity), true
+		return e.complexity.ResaleInfo.ItemID(childComplexity), true
 
-	case "RecipeResaleInformation.Profit":
-		if e.complexity.RecipeResaleInformation.Profit == nil {
+	case "ResaleInfo.ItemsToPurchase":
+		if e.complexity.ResaleInfo.ItemsToPurchase == nil {
 			break
 		}
 
-		return e.complexity.RecipeResaleInformation.Profit(childComplexity), true
+		return e.complexity.ResaleInfo.ItemsToPurchase(childComplexity), true
+
+	case "ResaleInfo.Profit":
+		if e.complexity.ResaleInfo.Profit == nil {
+			break
+		}
+
+		return e.complexity.ResaleInfo.Profit(childComplexity), true
+
+	case "ResaleInfo.Quantity":
+		if e.complexity.ResaleInfo.Quantity == nil {
+			break
+		}
+
+		return e.complexity.ResaleInfo.Quantity(childComplexity), true
+
+	case "ResaleInfo.SingleCost":
+		if e.complexity.ResaleInfo.SingleCost == nil {
+			break
+		}
+
+		return e.complexity.ResaleInfo.SingleCost(childComplexity), true
+
+	case "ResaleInfo.TotalCost":
+		if e.complexity.ResaleInfo.TotalCost == nil {
+			break
+		}
+
+		return e.complexity.ResaleInfo.TotalCost(childComplexity), true
 
 	case "User.DataCenter":
 		if e.complexity.User.DataCenter == nil {
@@ -877,8 +986,16 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var sources = []*ast.Source{
+	{Name: "../schema/craftingleve.graphql", Input: `type CraftingLeve {
+    LeveId: Int!
+    GilReward: Int!
+    ExpReward: Int!
+    QuestName: String!
+    LevelReq: Int!
+    JobReq: CrafterType!
+}`, BuiltIn: false},
 	{Name: "../schema/crafttype.graphql", Input: `
-enum CraftType {
+enum CrafterType {
     CARPENTER
     BLACKSMITH
     ARMOURER
@@ -900,12 +1017,12 @@ type Item {
     SellToVendorValue: Int
     BuyFromVendorValue: Int
     MarketboardEntries: [MarketboardEntry!]!
-    ResaleValue(DataCenter: String!, HomeServer: String!) : Int!
-    VendorResaleValue(DataCenter: String!, HomeServer: String!) : Int!
-    RecipeResaleValue(BuyFromOtherSevers: Boolean, BuyCrystals: Boolean, DataCenter: String!, HomeServer: String!): RecipeResaleInformation!
-}
-
-`, BuiltIn: false},
+    AssociatedLeve: CraftingLeve
+    LeveProfit(DataCenter: String!, HomeServer: String!, BuyFromOtherSevers: Boolean): ResaleInfo!
+    DcFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo!
+    VendorFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo!
+    RecipeProfit(BuyFromOtherSevers: Boolean, BuyCrystals: Boolean, DataCenter: String!, HomeServer: String!): RecipeResaleInfo!
+}`, BuiltIn: false},
 	{Name: "../schema/job.graphql", Input: `
 type Job {
     Id: ID!
@@ -975,7 +1092,7 @@ type Recipe {
     RecipeId: Int!
     ItemResultId: Int!
     ResultQuantity: Int!
-    CraftedBy: CraftType!
+    CraftedBy: CrafterType!
     RecipeLevel: Int
     MasteryStars: Int
     RecipeItems: [RecipeContents!]
@@ -988,20 +1105,27 @@ type RecipeContents {
     Item: Item!
     Count: Int!
 }`, BuiltIn: false},
-	{Name: "../schema/reciperesaleinformation.graphql", Input: `
-type RecipeResaleInformation {
-    Profit: Int!
-    ItemsToPurchase: [RecipePurchaseInformation!]!
+	{Name: "../schema/reciperesaleinfo.graphql", Input: `
+type RecipeResaleInfo {
+    ResaleInfo: ResaleInfo!
     CraftLevel: Int!
-    CraftType: CraftType!
-    ItemCost: Int!
+    CraftType: CrafterType!
+}`, BuiltIn: false},
+	{Name: "../schema/resaleinfo.graphql", Input: `
+type ResaleInfo {
+    Profit: Int!
+    ItemId: Int!
+    Quantity: Int!
+    SingleCost: Int!
+    TotalCost: Int!
+    ItemsToPurchase: [RecipePurchaseInfo!]!
 }
 
-type RecipePurchaseInformation {
+type RecipePurchaseInfo {
     Item: Item!
     ServerToBuyFrom: String!
     BuyFromVendor: Boolean!
-    Quantity: Int!
+    ItemCost: Int!
 }`, BuiltIn: false},
 	{Name: "../schema/user.graphql", Input: `
 type User {
@@ -1029,7 +1153,64 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Item_RecipeResaleValue_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Item_DcFlipProfit_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["DataCenter"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("DataCenter"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["DataCenter"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["HomeServer"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("HomeServer"))
+		arg1, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["HomeServer"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Item_LeveProfit_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["DataCenter"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("DataCenter"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["DataCenter"] = arg0
+	var arg1 string
+	if tmp, ok := rawArgs["HomeServer"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("HomeServer"))
+		arg1, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["HomeServer"] = arg1
+	var arg2 *bool
+	if tmp, ok := rawArgs["BuyFromOtherSevers"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("BuyFromOtherSevers"))
+		arg2, err = ec.unmarshalOBoolean2ᚖbool(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["BuyFromOtherSevers"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Item_RecipeProfit_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 *bool
@@ -1071,31 +1252,7 @@ func (ec *executionContext) field_Item_RecipeResaleValue_args(ctx context.Contex
 	return args, nil
 }
 
-func (ec *executionContext) field_Item_ResaleValue_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["DataCenter"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("DataCenter"))
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["DataCenter"] = arg0
-	var arg1 string
-	if tmp, ok := rawArgs["HomeServer"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("HomeServer"))
-		arg1, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["HomeServer"] = arg1
-	return args, nil
-}
-
-func (ec *executionContext) field_Item_VendorResaleValue_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Item_VendorFlipProfit_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 string
@@ -1285,6 +1442,270 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _CraftingLeve_LeveId(ctx context.Context, field graphql.CollectedField, obj *schema.CraftingLeve) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CraftingLeve_LeveId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.LeveID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CraftingLeve_LeveId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CraftingLeve",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CraftingLeve_GilReward(ctx context.Context, field graphql.CollectedField, obj *schema.CraftingLeve) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CraftingLeve_GilReward(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.GilReward, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CraftingLeve_GilReward(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CraftingLeve",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CraftingLeve_ExpReward(ctx context.Context, field graphql.CollectedField, obj *schema.CraftingLeve) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CraftingLeve_ExpReward(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ExpReward, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CraftingLeve_ExpReward(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CraftingLeve",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CraftingLeve_QuestName(ctx context.Context, field graphql.CollectedField, obj *schema.CraftingLeve) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CraftingLeve_QuestName(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.QuestName, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CraftingLeve_QuestName(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CraftingLeve",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CraftingLeve_LevelReq(ctx context.Context, field graphql.CollectedField, obj *schema.CraftingLeve) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CraftingLeve_LevelReq(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.LevelReq, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CraftingLeve_LevelReq(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CraftingLeve",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CraftingLeve_JobReq(ctx context.Context, field graphql.CollectedField, obj *schema.CraftingLeve) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CraftingLeve_JobReq(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.JobReq, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(schema.CrafterType)
+	fc.Result = res
+	return ec.marshalNCrafterType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCrafterType(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CraftingLeve_JobReq(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CraftingLeve",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type CrafterType does not have child fields")
+		},
+	}
+	return fc, nil
+}
 
 func (ec *executionContext) _Item_ItemID(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Item_ItemID(ctx, field)
@@ -1714,8 +2135,8 @@ func (ec *executionContext) fieldContext_Item_MarketboardEntries(ctx context.Con
 	return fc, nil
 }
 
-func (ec *executionContext) _Item_ResaleValue(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Item_ResaleValue(ctx, field)
+func (ec *executionContext) _Item_AssociatedLeve(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Item_AssociatedLeve(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1728,49 +2149,49 @@ func (ec *executionContext) _Item_ResaleValue(ctx context.Context, field graphql
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Item().ResaleValue(rctx, obj, fc.Args["DataCenter"].(string), fc.Args["HomeServer"].(string))
+		return obj.AssociatedLeve, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
-	res := resTmp.(int)
+	res := resTmp.(*schema.CraftingLeve)
 	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
+	return ec.marshalOCraftingLeve2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCraftingLeve(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Item_ResaleValue(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Item_AssociatedLeve(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Item",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
+			switch field.Name {
+			case "LeveId":
+				return ec.fieldContext_CraftingLeve_LeveId(ctx, field)
+			case "GilReward":
+				return ec.fieldContext_CraftingLeve_GilReward(ctx, field)
+			case "ExpReward":
+				return ec.fieldContext_CraftingLeve_ExpReward(ctx, field)
+			case "QuestName":
+				return ec.fieldContext_CraftingLeve_QuestName(ctx, field)
+			case "LevelReq":
+				return ec.fieldContext_CraftingLeve_LevelReq(ctx, field)
+			case "JobReq":
+				return ec.fieldContext_CraftingLeve_JobReq(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CraftingLeve", field.Name)
 		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Item_ResaleValue_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Item_VendorResaleValue(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Item_VendorResaleValue(ctx, field)
+func (ec *executionContext) _Item_LeveProfit(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Item_LeveProfit(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1783,7 +2204,7 @@ func (ec *executionContext) _Item_VendorResaleValue(ctx context.Context, field g
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Item().VendorResaleValue(rctx, obj, fc.Args["DataCenter"].(string), fc.Args["HomeServer"].(string))
+		return ec.resolvers.Item().LeveProfit(rctx, obj, fc.Args["DataCenter"].(string), fc.Args["HomeServer"].(string), fc.Args["BuyFromOtherSevers"].(*bool))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1795,67 +2216,12 @@ func (ec *executionContext) _Item_VendorResaleValue(ctx context.Context, field g
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int)
+	res := resTmp.(*schema.ResaleInfo)
 	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
+	return ec.marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Item_VendorResaleValue(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Item",
-		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
-		}
-	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Item_VendorResaleValue_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
-		ec.Error(ctx, err)
-		return
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _Item_RecipeResaleValue(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Item_RecipeResaleValue(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Item().RecipeResaleValue(rctx, obj, fc.Args["BuyFromOtherSevers"].(*bool), fc.Args["BuyCrystals"].(*bool), fc.Args["DataCenter"].(string), fc.Args["HomeServer"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*schema.RecipeResaleInformation)
-	fc.Result = res
-	return ec.marshalNRecipeResaleInformation2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInformation(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_Item_RecipeResaleValue(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Item_LeveProfit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Item",
 		Field:      field,
@@ -1864,17 +2230,19 @@ func (ec *executionContext) fieldContext_Item_RecipeResaleValue(ctx context.Cont
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "Profit":
-				return ec.fieldContext_RecipeResaleInformation_Profit(ctx, field)
+				return ec.fieldContext_ResaleInfo_Profit(ctx, field)
+			case "ItemId":
+				return ec.fieldContext_ResaleInfo_ItemId(ctx, field)
+			case "Quantity":
+				return ec.fieldContext_ResaleInfo_Quantity(ctx, field)
+			case "SingleCost":
+				return ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
+			case "TotalCost":
+				return ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
 			case "ItemsToPurchase":
-				return ec.fieldContext_RecipeResaleInformation_ItemsToPurchase(ctx, field)
-			case "CraftLevel":
-				return ec.fieldContext_RecipeResaleInformation_CraftLevel(ctx, field)
-			case "CraftType":
-				return ec.fieldContext_RecipeResaleInformation_CraftType(ctx, field)
-			case "ItemCost":
-				return ec.fieldContext_RecipeResaleInformation_ItemCost(ctx, field)
+				return ec.fieldContext_ResaleInfo_ItemsToPurchase(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type RecipeResaleInformation", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type ResaleInfo", field.Name)
 		},
 	}
 	defer func() {
@@ -1884,7 +2252,208 @@ func (ec *executionContext) fieldContext_Item_RecipeResaleValue(ctx context.Cont
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Item_RecipeResaleValue_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Item_LeveProfit_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Item_DcFlipProfit(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Item_DcFlipProfit(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Item().DcFlipProfit(rctx, obj, fc.Args["DataCenter"].(string), fc.Args["HomeServer"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*schema.ResaleInfo)
+	fc.Result = res
+	return ec.marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Item_DcFlipProfit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Item",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "Profit":
+				return ec.fieldContext_ResaleInfo_Profit(ctx, field)
+			case "ItemId":
+				return ec.fieldContext_ResaleInfo_ItemId(ctx, field)
+			case "Quantity":
+				return ec.fieldContext_ResaleInfo_Quantity(ctx, field)
+			case "SingleCost":
+				return ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
+			case "TotalCost":
+				return ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
+			case "ItemsToPurchase":
+				return ec.fieldContext_ResaleInfo_ItemsToPurchase(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ResaleInfo", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Item_DcFlipProfit_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Item_VendorFlipProfit(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Item_VendorFlipProfit(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Item().VendorFlipProfit(rctx, obj, fc.Args["DataCenter"].(string), fc.Args["HomeServer"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*schema.ResaleInfo)
+	fc.Result = res
+	return ec.marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Item_VendorFlipProfit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Item",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "Profit":
+				return ec.fieldContext_ResaleInfo_Profit(ctx, field)
+			case "ItemId":
+				return ec.fieldContext_ResaleInfo_ItemId(ctx, field)
+			case "Quantity":
+				return ec.fieldContext_ResaleInfo_Quantity(ctx, field)
+			case "SingleCost":
+				return ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
+			case "TotalCost":
+				return ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
+			case "ItemsToPurchase":
+				return ec.fieldContext_ResaleInfo_ItemsToPurchase(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ResaleInfo", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Item_VendorFlipProfit_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Item_RecipeProfit(ctx context.Context, field graphql.CollectedField, obj *schema.Item) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Item_RecipeProfit(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Item().RecipeProfit(rctx, obj, fc.Args["BuyFromOtherSevers"].(*bool), fc.Args["BuyCrystals"].(*bool), fc.Args["DataCenter"].(string), fc.Args["HomeServer"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*schema.RecipeResaleInfo)
+	fc.Result = res
+	return ec.marshalNRecipeResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Item_RecipeProfit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Item",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "ResaleInfo":
+				return ec.fieldContext_RecipeResaleInfo_ResaleInfo(ctx, field)
+			case "CraftLevel":
+				return ec.fieldContext_RecipeResaleInfo_CraftLevel(ctx, field)
+			case "CraftType":
+				return ec.fieldContext_RecipeResaleInfo_CraftType(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type RecipeResaleInfo", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Item_RecipeProfit_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return
 	}
@@ -3459,12 +4028,16 @@ func (ec *executionContext) fieldContext_Query_Items(ctx context.Context, field 
 				return ec.fieldContext_Item_BuyFromVendorValue(ctx, field)
 			case "MarketboardEntries":
 				return ec.fieldContext_Item_MarketboardEntries(ctx, field)
-			case "ResaleValue":
-				return ec.fieldContext_Item_ResaleValue(ctx, field)
-			case "VendorResaleValue":
-				return ec.fieldContext_Item_VendorResaleValue(ctx, field)
-			case "RecipeResaleValue":
-				return ec.fieldContext_Item_RecipeResaleValue(ctx, field)
+			case "AssociatedLeve":
+				return ec.fieldContext_Item_AssociatedLeve(ctx, field)
+			case "LeveProfit":
+				return ec.fieldContext_Item_LeveProfit(ctx, field)
+			case "DcFlipProfit":
+				return ec.fieldContext_Item_DcFlipProfit(ctx, field)
+			case "VendorFlipProfit":
+				return ec.fieldContext_Item_VendorFlipProfit(ctx, field)
+			case "RecipeProfit":
+				return ec.fieldContext_Item_RecipeProfit(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Item", field.Name)
 		},
@@ -3726,12 +4299,16 @@ func (ec *executionContext) fieldContext_Query_GetItem(ctx context.Context, fiel
 				return ec.fieldContext_Item_BuyFromVendorValue(ctx, field)
 			case "MarketboardEntries":
 				return ec.fieldContext_Item_MarketboardEntries(ctx, field)
-			case "ResaleValue":
-				return ec.fieldContext_Item_ResaleValue(ctx, field)
-			case "VendorResaleValue":
-				return ec.fieldContext_Item_VendorResaleValue(ctx, field)
-			case "RecipeResaleValue":
-				return ec.fieldContext_Item_RecipeResaleValue(ctx, field)
+			case "AssociatedLeve":
+				return ec.fieldContext_Item_AssociatedLeve(ctx, field)
+			case "LeveProfit":
+				return ec.fieldContext_Item_LeveProfit(ctx, field)
+			case "DcFlipProfit":
+				return ec.fieldContext_Item_DcFlipProfit(ctx, field)
+			case "VendorFlipProfit":
+				return ec.fieldContext_Item_VendorFlipProfit(ctx, field)
+			case "RecipeProfit":
+				return ec.fieldContext_Item_RecipeProfit(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Item", field.Name)
 		},
@@ -4185,9 +4762,9 @@ func (ec *executionContext) _Recipe_CraftedBy(ctx context.Context, field graphql
 		}
 		return graphql.Null
 	}
-	res := resTmp.(schema.CraftType)
+	res := resTmp.(schema.CrafterType)
 	fc.Result = res
-	return ec.marshalNCraftType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCraftType(ctx, field.Selections, res)
+	return ec.marshalNCrafterType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCrafterType(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Recipe_CraftedBy(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4197,7 +4774,7 @@ func (ec *executionContext) fieldContext_Recipe_CraftedBy(ctx context.Context, f
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type CraftType does not have child fields")
+			return nil, errors.New("field of type CrafterType does not have child fields")
 		},
 	}
 	return fc, nil
@@ -4512,12 +5089,16 @@ func (ec *executionContext) fieldContext_RecipeContents_Item(ctx context.Context
 				return ec.fieldContext_Item_BuyFromVendorValue(ctx, field)
 			case "MarketboardEntries":
 				return ec.fieldContext_Item_MarketboardEntries(ctx, field)
-			case "ResaleValue":
-				return ec.fieldContext_Item_ResaleValue(ctx, field)
-			case "VendorResaleValue":
-				return ec.fieldContext_Item_VendorResaleValue(ctx, field)
-			case "RecipeResaleValue":
-				return ec.fieldContext_Item_RecipeResaleValue(ctx, field)
+			case "AssociatedLeve":
+				return ec.fieldContext_Item_AssociatedLeve(ctx, field)
+			case "LeveProfit":
+				return ec.fieldContext_Item_LeveProfit(ctx, field)
+			case "DcFlipProfit":
+				return ec.fieldContext_Item_DcFlipProfit(ctx, field)
+			case "VendorFlipProfit":
+				return ec.fieldContext_Item_VendorFlipProfit(ctx, field)
+			case "RecipeProfit":
+				return ec.fieldContext_Item_RecipeProfit(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Item", field.Name)
 		},
@@ -4569,8 +5150,8 @@ func (ec *executionContext) fieldContext_RecipeContents_Count(ctx context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _RecipePurchaseInformation_Item(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipePurchaseInformation_Item(ctx, field)
+func (ec *executionContext) _RecipePurchaseInfo_Item(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipePurchaseInfo_Item(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -4600,9 +5181,9 @@ func (ec *executionContext) _RecipePurchaseInformation_Item(ctx context.Context,
 	return ec.marshalNItem2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐItem(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_RecipePurchaseInformation_Item(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_RecipePurchaseInfo_Item(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "RecipePurchaseInformation",
+		Object:     "RecipePurchaseInfo",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -4626,12 +5207,16 @@ func (ec *executionContext) fieldContext_RecipePurchaseInformation_Item(ctx cont
 				return ec.fieldContext_Item_BuyFromVendorValue(ctx, field)
 			case "MarketboardEntries":
 				return ec.fieldContext_Item_MarketboardEntries(ctx, field)
-			case "ResaleValue":
-				return ec.fieldContext_Item_ResaleValue(ctx, field)
-			case "VendorResaleValue":
-				return ec.fieldContext_Item_VendorResaleValue(ctx, field)
-			case "RecipeResaleValue":
-				return ec.fieldContext_Item_RecipeResaleValue(ctx, field)
+			case "AssociatedLeve":
+				return ec.fieldContext_Item_AssociatedLeve(ctx, field)
+			case "LeveProfit":
+				return ec.fieldContext_Item_LeveProfit(ctx, field)
+			case "DcFlipProfit":
+				return ec.fieldContext_Item_DcFlipProfit(ctx, field)
+			case "VendorFlipProfit":
+				return ec.fieldContext_Item_VendorFlipProfit(ctx, field)
+			case "RecipeProfit":
+				return ec.fieldContext_Item_RecipeProfit(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Item", field.Name)
 		},
@@ -4639,8 +5224,8 @@ func (ec *executionContext) fieldContext_RecipePurchaseInformation_Item(ctx cont
 	return fc, nil
 }
 
-func (ec *executionContext) _RecipePurchaseInformation_ServerToBuyFrom(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipePurchaseInformation_ServerToBuyFrom(ctx, field)
+func (ec *executionContext) _RecipePurchaseInfo_ServerToBuyFrom(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipePurchaseInfo_ServerToBuyFrom(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -4670,9 +5255,9 @@ func (ec *executionContext) _RecipePurchaseInformation_ServerToBuyFrom(ctx conte
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_RecipePurchaseInformation_ServerToBuyFrom(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_RecipePurchaseInfo_ServerToBuyFrom(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "RecipePurchaseInformation",
+		Object:     "RecipePurchaseInfo",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -4683,8 +5268,8 @@ func (ec *executionContext) fieldContext_RecipePurchaseInformation_ServerToBuyFr
 	return fc, nil
 }
 
-func (ec *executionContext) _RecipePurchaseInformation_BuyFromVendor(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipePurchaseInformation_BuyFromVendor(ctx, field)
+func (ec *executionContext) _RecipePurchaseInfo_BuyFromVendor(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipePurchaseInfo_BuyFromVendor(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -4714,9 +5299,9 @@ func (ec *executionContext) _RecipePurchaseInformation_BuyFromVendor(ctx context
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_RecipePurchaseInformation_BuyFromVendor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_RecipePurchaseInfo_BuyFromVendor(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "RecipePurchaseInformation",
+		Object:     "RecipePurchaseInfo",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -4727,238 +5312,8 @@ func (ec *executionContext) fieldContext_RecipePurchaseInformation_BuyFromVendor
 	return fc, nil
 }
 
-func (ec *executionContext) _RecipePurchaseInformation_Quantity(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipePurchaseInformation_Quantity(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Quantity, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int)
-	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RecipePurchaseInformation_Quantity(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RecipePurchaseInformation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RecipeResaleInformation_Profit(ctx context.Context, field graphql.CollectedField, obj *schema.RecipeResaleInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipeResaleInformation_Profit(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Profit, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int)
-	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RecipeResaleInformation_Profit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RecipeResaleInformation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RecipeResaleInformation_ItemsToPurchase(ctx context.Context, field graphql.CollectedField, obj *schema.RecipeResaleInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipeResaleInformation_ItemsToPurchase(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ItemsToPurchase, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]*schema.RecipePurchaseInformation)
-	fc.Result = res
-	return ec.marshalNRecipePurchaseInformation2ᚕᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipePurchaseInformationᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RecipeResaleInformation_ItemsToPurchase(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RecipeResaleInformation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "Item":
-				return ec.fieldContext_RecipePurchaseInformation_Item(ctx, field)
-			case "ServerToBuyFrom":
-				return ec.fieldContext_RecipePurchaseInformation_ServerToBuyFrom(ctx, field)
-			case "BuyFromVendor":
-				return ec.fieldContext_RecipePurchaseInformation_BuyFromVendor(ctx, field)
-			case "Quantity":
-				return ec.fieldContext_RecipePurchaseInformation_Quantity(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type RecipePurchaseInformation", field.Name)
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RecipeResaleInformation_CraftLevel(ctx context.Context, field graphql.CollectedField, obj *schema.RecipeResaleInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipeResaleInformation_CraftLevel(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.CraftLevel, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int)
-	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RecipeResaleInformation_CraftLevel(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RecipeResaleInformation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RecipeResaleInformation_CraftType(ctx context.Context, field graphql.CollectedField, obj *schema.RecipeResaleInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipeResaleInformation_CraftType(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.CraftType, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(schema.CraftType)
-	fc.Result = res
-	return ec.marshalNCraftType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCraftType(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_RecipeResaleInformation_CraftType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "RecipeResaleInformation",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type CraftType does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _RecipeResaleInformation_ItemCost(ctx context.Context, field graphql.CollectedField, obj *schema.RecipeResaleInformation) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipeResaleInformation_ItemCost(ctx, field)
+func (ec *executionContext) _RecipePurchaseInfo_ItemCost(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipePurchaseInfo_ItemCost(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -4988,14 +5343,434 @@ func (ec *executionContext) _RecipeResaleInformation_ItemCost(ctx context.Contex
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_RecipeResaleInformation_ItemCost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_RecipePurchaseInfo_ItemCost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "RecipeResaleInformation",
+		Object:     "RecipePurchaseInfo",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RecipeResaleInfo_ResaleInfo(ctx context.Context, field graphql.CollectedField, obj *schema.RecipeResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipeResaleInfo_ResaleInfo(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ResaleInfo, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*schema.ResaleInfo)
+	fc.Result = res
+	return ec.marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RecipeResaleInfo_ResaleInfo(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RecipeResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "Profit":
+				return ec.fieldContext_ResaleInfo_Profit(ctx, field)
+			case "ItemId":
+				return ec.fieldContext_ResaleInfo_ItemId(ctx, field)
+			case "Quantity":
+				return ec.fieldContext_ResaleInfo_Quantity(ctx, field)
+			case "SingleCost":
+				return ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
+			case "TotalCost":
+				return ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
+			case "ItemsToPurchase":
+				return ec.fieldContext_ResaleInfo_ItemsToPurchase(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ResaleInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RecipeResaleInfo_CraftLevel(ctx context.Context, field graphql.CollectedField, obj *schema.RecipeResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipeResaleInfo_CraftLevel(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CraftLevel, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RecipeResaleInfo_CraftLevel(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RecipeResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RecipeResaleInfo_CraftType(ctx context.Context, field graphql.CollectedField, obj *schema.RecipeResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipeResaleInfo_CraftType(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CraftType, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(schema.CrafterType)
+	fc.Result = res
+	return ec.marshalNCrafterType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCrafterType(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RecipeResaleInfo_CraftType(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RecipeResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type CrafterType does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ResaleInfo_Profit(ctx context.Context, field graphql.CollectedField, obj *schema.ResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ResaleInfo_Profit(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Profit, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ResaleInfo_Profit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ResaleInfo_ItemId(ctx context.Context, field graphql.CollectedField, obj *schema.ResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ResaleInfo_ItemId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ItemID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ResaleInfo_ItemId(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ResaleInfo_Quantity(ctx context.Context, field graphql.CollectedField, obj *schema.ResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ResaleInfo_Quantity(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Quantity, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ResaleInfo_Quantity(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ResaleInfo_SingleCost(ctx context.Context, field graphql.CollectedField, obj *schema.ResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.SingleCost, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ResaleInfo_SingleCost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ResaleInfo_TotalCost(ctx context.Context, field graphql.CollectedField, obj *schema.ResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalCost, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ResaleInfo_TotalCost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ResaleInfo_ItemsToPurchase(ctx context.Context, field graphql.CollectedField, obj *schema.ResaleInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_ResaleInfo_ItemsToPurchase(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ItemsToPurchase, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*schema.RecipePurchaseInfo)
+	fc.Result = res
+	return ec.marshalNRecipePurchaseInfo2ᚕᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipePurchaseInfoᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_ResaleInfo_ItemsToPurchase(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ResaleInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "Item":
+				return ec.fieldContext_RecipePurchaseInfo_Item(ctx, field)
+			case "ServerToBuyFrom":
+				return ec.fieldContext_RecipePurchaseInfo_ServerToBuyFrom(ctx, field)
+			case "BuyFromVendor":
+				return ec.fieldContext_RecipePurchaseInfo_BuyFromVendor(ctx, field)
+			case "ItemCost":
+				return ec.fieldContext_RecipePurchaseInfo_ItemCost(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type RecipePurchaseInfo", field.Name)
 		},
 	}
 	return fc, nil
@@ -7184,6 +7959,69 @@ func (ec *executionContext) unmarshalInputUserInput(ctx context.Context, obj int
 
 // region    **************************** object.gotpl ****************************
 
+var craftingLeveImplementors = []string{"CraftingLeve"}
+
+func (ec *executionContext) _CraftingLeve(ctx context.Context, sel ast.SelectionSet, obj *schema.CraftingLeve) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, craftingLeveImplementors)
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CraftingLeve")
+		case "LeveId":
+
+			out.Values[i] = ec._CraftingLeve_LeveId(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "GilReward":
+
+			out.Values[i] = ec._CraftingLeve_GilReward(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "ExpReward":
+
+			out.Values[i] = ec._CraftingLeve_ExpReward(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "QuestName":
+
+			out.Values[i] = ec._CraftingLeve_QuestName(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "LevelReq":
+
+			out.Values[i] = ec._CraftingLeve_LevelReq(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "JobReq":
+
+			out.Values[i] = ec._CraftingLeve_JobReq(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
 var itemImplementors = []string{"Item"}
 
 func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj *schema.Item) graphql.Marshaler {
@@ -7271,7 +8109,11 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 				return innerFunc(ctx)
 
 			})
-		case "ResaleValue":
+		case "AssociatedLeve":
+
+			out.Values[i] = ec._Item_AssociatedLeve(ctx, field, obj)
+
+		case "LeveProfit":
 			field := field
 
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
@@ -7280,7 +8122,7 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Item_ResaleValue(ctx, field, obj)
+				res = ec._Item_LeveProfit(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
@@ -7291,7 +8133,7 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 				return innerFunc(ctx)
 
 			})
-		case "VendorResaleValue":
+		case "DcFlipProfit":
 			field := field
 
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
@@ -7300,7 +8142,7 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Item_VendorResaleValue(ctx, field, obj)
+				res = ec._Item_DcFlipProfit(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
@@ -7311,7 +8153,7 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 				return innerFunc(ctx)
 
 			})
-		case "RecipeResaleValue":
+		case "VendorFlipProfit":
 			field := field
 
 			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
@@ -7320,7 +8162,27 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Item_RecipeResaleValue(ctx, field, obj)
+				res = ec._Item_VendorFlipProfit(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			}
+
+			out.Concurrently(i, func() graphql.Marshaler {
+				return innerFunc(ctx)
+
+			})
+		case "RecipeProfit":
+			field := field
+
+			innerFunc := func(ctx context.Context) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Item_RecipeProfit(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
@@ -8002,40 +8864,40 @@ func (ec *executionContext) _RecipeContents(ctx context.Context, sel ast.Selecti
 	return out
 }
 
-var recipePurchaseInformationImplementors = []string{"RecipePurchaseInformation"}
+var recipePurchaseInfoImplementors = []string{"RecipePurchaseInfo"}
 
-func (ec *executionContext) _RecipePurchaseInformation(ctx context.Context, sel ast.SelectionSet, obj *schema.RecipePurchaseInformation) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, recipePurchaseInformationImplementors)
+func (ec *executionContext) _RecipePurchaseInfo(ctx context.Context, sel ast.SelectionSet, obj *schema.RecipePurchaseInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, recipePurchaseInfoImplementors)
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("RecipePurchaseInformation")
+			out.Values[i] = graphql.MarshalString("RecipePurchaseInfo")
 		case "Item":
 
-			out.Values[i] = ec._RecipePurchaseInformation_Item(ctx, field, obj)
+			out.Values[i] = ec._RecipePurchaseInfo_Item(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "ServerToBuyFrom":
 
-			out.Values[i] = ec._RecipePurchaseInformation_ServerToBuyFrom(ctx, field, obj)
+			out.Values[i] = ec._RecipePurchaseInfo_ServerToBuyFrom(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "BuyFromVendor":
 
-			out.Values[i] = ec._RecipePurchaseInformation_BuyFromVendor(ctx, field, obj)
+			out.Values[i] = ec._RecipePurchaseInfo_BuyFromVendor(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "Quantity":
+		case "ItemCost":
 
-			out.Values[i] = ec._RecipePurchaseInformation_Quantity(ctx, field, obj)
+			out.Values[i] = ec._RecipePurchaseInfo_ItemCost(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -8051,47 +8913,96 @@ func (ec *executionContext) _RecipePurchaseInformation(ctx context.Context, sel 
 	return out
 }
 
-var recipeResaleInformationImplementors = []string{"RecipeResaleInformation"}
+var recipeResaleInfoImplementors = []string{"RecipeResaleInfo"}
 
-func (ec *executionContext) _RecipeResaleInformation(ctx context.Context, sel ast.SelectionSet, obj *schema.RecipeResaleInformation) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, recipeResaleInformationImplementors)
+func (ec *executionContext) _RecipeResaleInfo(ctx context.Context, sel ast.SelectionSet, obj *schema.RecipeResaleInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, recipeResaleInfoImplementors)
 	out := graphql.NewFieldSet(fields)
 	var invalids uint32
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("RecipeResaleInformation")
-		case "Profit":
+			out.Values[i] = graphql.MarshalString("RecipeResaleInfo")
+		case "ResaleInfo":
 
-			out.Values[i] = ec._RecipeResaleInformation_Profit(ctx, field, obj)
-
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "ItemsToPurchase":
-
-			out.Values[i] = ec._RecipeResaleInformation_ItemsToPurchase(ctx, field, obj)
+			out.Values[i] = ec._RecipeResaleInfo_ResaleInfo(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "CraftLevel":
 
-			out.Values[i] = ec._RecipeResaleInformation_CraftLevel(ctx, field, obj)
+			out.Values[i] = ec._RecipeResaleInfo_CraftLevel(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
 		case "CraftType":
 
-			out.Values[i] = ec._RecipeResaleInformation_CraftType(ctx, field, obj)
+			out.Values[i] = ec._RecipeResaleInfo_CraftType(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "ItemCost":
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
 
-			out.Values[i] = ec._RecipeResaleInformation_ItemCost(ctx, field, obj)
+var resaleInfoImplementors = []string{"ResaleInfo"}
+
+func (ec *executionContext) _ResaleInfo(ctx context.Context, sel ast.SelectionSet, obj *schema.ResaleInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, resaleInfoImplementors)
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ResaleInfo")
+		case "Profit":
+
+			out.Values[i] = ec._ResaleInfo_Profit(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "ItemId":
+
+			out.Values[i] = ec._ResaleInfo_ItemId(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "Quantity":
+
+			out.Values[i] = ec._ResaleInfo_Quantity(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "SingleCost":
+
+			out.Values[i] = ec._ResaleInfo_SingleCost(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "TotalCost":
+
+			out.Values[i] = ec._ResaleInfo_TotalCost(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "ItemsToPurchase":
+
+			out.Values[i] = ec._ResaleInfo_ItemsToPurchase(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++
@@ -8492,13 +9403,13 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) unmarshalNCraftType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCraftType(ctx context.Context, v interface{}) (schema.CraftType, error) {
-	var res schema.CraftType
+func (ec *executionContext) unmarshalNCrafterType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCrafterType(ctx context.Context, v interface{}) (schema.CrafterType, error) {
+	var res schema.CrafterType
 	err := res.UnmarshalGQL(v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNCraftType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCraftType(ctx context.Context, sel ast.SelectionSet, v schema.CraftType) graphql.Marshaler {
+func (ec *executionContext) marshalNCrafterType2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCrafterType(ctx context.Context, sel ast.SelectionSet, v schema.CrafterType) graphql.Marshaler {
 	return v
 }
 
@@ -8758,7 +9669,7 @@ func (ec *executionContext) marshalNRecipeContents2ᚖMarketMoogleAPIᚋcoreᚋg
 	return ec._RecipeContents(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRecipePurchaseInformation2ᚕᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipePurchaseInformationᚄ(ctx context.Context, sel ast.SelectionSet, v []*schema.RecipePurchaseInformation) graphql.Marshaler {
+func (ec *executionContext) marshalNRecipePurchaseInfo2ᚕᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipePurchaseInfoᚄ(ctx context.Context, sel ast.SelectionSet, v []*schema.RecipePurchaseInfo) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -8782,7 +9693,7 @@ func (ec *executionContext) marshalNRecipePurchaseInformation2ᚕᚖMarketMoogle
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNRecipePurchaseInformation2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipePurchaseInformation(ctx, sel, v[i])
+			ret[i] = ec.marshalNRecipePurchaseInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipePurchaseInfo(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -8802,28 +9713,42 @@ func (ec *executionContext) marshalNRecipePurchaseInformation2ᚕᚖMarketMoogle
 	return ret
 }
 
-func (ec *executionContext) marshalNRecipePurchaseInformation2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipePurchaseInformation(ctx context.Context, sel ast.SelectionSet, v *schema.RecipePurchaseInformation) graphql.Marshaler {
+func (ec *executionContext) marshalNRecipePurchaseInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipePurchaseInfo(ctx context.Context, sel ast.SelectionSet, v *schema.RecipePurchaseInfo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._RecipePurchaseInformation(ctx, sel, v)
+	return ec._RecipePurchaseInfo(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRecipeResaleInformation2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInformation(ctx context.Context, sel ast.SelectionSet, v schema.RecipeResaleInformation) graphql.Marshaler {
-	return ec._RecipeResaleInformation(ctx, sel, &v)
+func (ec *executionContext) marshalNRecipeResaleInfo2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInfo(ctx context.Context, sel ast.SelectionSet, v schema.RecipeResaleInfo) graphql.Marshaler {
+	return ec._RecipeResaleInfo(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNRecipeResaleInformation2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInformation(ctx context.Context, sel ast.SelectionSet, v *schema.RecipeResaleInformation) graphql.Marshaler {
+func (ec *executionContext) marshalNRecipeResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInfo(ctx context.Context, sel ast.SelectionSet, v *schema.RecipeResaleInfo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._RecipeResaleInformation(ctx, sel, v)
+	return ec._RecipeResaleInfo(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNResaleInfo2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx context.Context, sel ast.SelectionSet, v schema.ResaleInfo) graphql.Marshaler {
+	return ec._ResaleInfo(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx context.Context, sel ast.SelectionSet, v *schema.ResaleInfo) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ResaleInfo(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
@@ -9196,6 +10121,13 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	}
 	res := graphql.MarshalBoolean(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOCraftingLeve2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐCraftingLeve(ctx context.Context, sel ast.SelectionSet, v *schema.CraftingLeve) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._CraftingLeve(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v interface{}) (*int, error) {

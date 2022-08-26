@@ -4,7 +4,7 @@
  * Please see the "LICENSE" file within MarketMoogleAPI to view the full license. This file, and all code within MarketMoogleAPI fall under the GNU General Public License.
  */
 
-package db
+package database
 
 import (
 	schema "MarketMoogleAPI/core/graph/model"
@@ -16,5 +16,6 @@ type ItemProvider interface {
 	FindItemByObjectId(ctx context.Context, ID string) (*schema.Item, error)
 	FindItemByItemId(ctx context.Context, itemId int) (*schema.Item, error)
 	GetAllItems(ctx context.Context) ([]*schema.Item, error)
-	UpdateVendorSellPrice(ctx context.Context, itemId *int, newPrice *int) error
+	UpdateVendorSellPrice(ctx context.Context, itemId int, newPrice int) error
+	UpdateLevequestInfo(ctx context.Context, itemId int, leve schema.CraftingLeve) error
 }

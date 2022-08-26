@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/99designs/gqlgen v0.17.12
-	github.com/ahmetb/go-linq/v3 v3.2.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/vektah/gqlparser/v2 v2.4.6
 	go.mongodb.org/mongo-driver v1.9.1

@@ -7,8 +7,9 @@ import (
 	generated "MarketMoogleAPI/core/graph/gen"
 	schema "MarketMoogleAPI/core/graph/model"
 	"MarketMoogleAPI/infrastructure/providers"
-	"MarketMoogleAPI/infrastructure/providers/db"
+	"MarketMoogleAPI/infrastructure/providers/database"
 	"context"
+	"log"
 )
 
 // Recipes is the resolver for the Recipes field.
@@ -21,27 +22,69 @@ func (r *itemResolver) MarketboardEntries(ctx context.Context, obj *schema.Item)
 	return r.mbProv.FindMarketboardEntriesByItemId(ctx, obj.ItemID)
 }
 
-// ResaleValue is the resolver for the ResaleValue field.
-func (r *itemResolver) ResaleValue(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error) {
-	return r.profitProv.GetCrossDcResaleProfit(ctx, obj, dataCenter, homeServer)
+// LeveProfit is the resolver for the LeveProfit field.
+func (r *itemResolver) LeveProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string, buyFromOtherSevers *bool) (*schema.ResaleInfo, error) {
+	panic("implement me")
 }
 
-// VendorResaleValue is the resolver for the VendorResaleValue field.
-func (r *itemResolver) VendorResaleValue(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (int, error) {
-	return r.profitProv.GetVendorResaleProfit(ctx, obj, dataCenter, homeServer)
+// DcFlipProfit is the resolver for the DcFlipProfit field.
+func (r *itemResolver) DcFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ResaleInfo, error) {
+	resaleProfit, err := r.profitProv.GetCrossDcResaleProfit(ctx, obj, dataCenter, homeServer)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return resaleProfit, nil
 }
 
-// RecipeResaleValue is the resolver for the RecipeResaleValue field.
-func (r *itemResolver) RecipeResaleValue(ctx context.Context, obj *schema.Item, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) (*schema.RecipeResaleInformation, error) {
-	return r.profitProv.GetCraftingProfit(ctx, obj, dataCenter, homeServer, buyCrystals, buyFromOtherSevers)
+// VendorFlipProfit is the resolver for the VendorFlipProfit field.
+func (r *itemResolver) VendorFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ResaleInfo, error) {
+	vendorPrice := 0
+	if obj.BuyFromVendorValue != nil {
+		vendorPrice = *obj.BuyFromVendorValue
+	}
+
+	purchaseInfo := schema.RecipePurchaseInfo{
+		Item:            obj,
+		ServerToBuyFrom: homeServer,
+		BuyFromVendor:   true,
+		ItemCost:        vendorPrice,
+	}
+
+	resaleProfit, err := r.profitProv.GetVendorFlipProfit(ctx, obj, dataCenter, homeServer)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	return &schema.ResaleInfo{
+		Profit:          resaleProfit,
+		ItemID:          obj.ItemID,
+		Quantity:        1,
+		SingleCost:      resaleProfit,
+		TotalCost:       resaleProfit,
+		ItemsToPurchase: []*schema.RecipePurchaseInfo{&purchaseInfo},
+	}, nil
 }
 
-// Item returns generated.ItemResolver implementation.
+// RecipeProfit is the resolver for the RecipeProfit field.
+func (r *itemResolver) RecipeProfit(ctx context.Context, obj *schema.Item, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) (*schema.RecipeResaleInfo, error) {
+	recipeResaleInfo, err := r.profitProv.GetResaleInfoForItem(ctx, obj, dataCenter, homeServer, buyCrystals, buyFromOtherSevers)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	return recipeResaleInfo, nil
+}
+
 func (r *Resolver) Item() generated.ItemResolver {
-
-	rProv := db.NewRecipeDatabaseProvider(r.DbClient)
-	mProv := db.NewMarketboardDatabaseProvider(r.DbClient)
-	iProv := db.NewItemDataBaseProvider(r.DbClient)
+	rProv := database.NewRecipeDatabaseProvider(r.DbClient)
+	iProv := database.NewItemDataBaseProvider(r.DbClient)
+	mProv := database.NewMarketboardDatabaseProvider(r.DbClient)
 
 	return &itemResolver{
 		Resolver:   r,
@@ -54,8 +97,8 @@ func (r *Resolver) Item() generated.ItemResolver {
 
 type itemResolver struct {
 	*Resolver
-	recipeProv *db.RecipeDatabaseProvider
-	mbProv     *db.MarketboardDatabaseProvider
-	itemProv   *db.ItemDatabaseProvider
+	recipeProv *database.RecipeDatabaseProvider
+	mbProv     *database.MarketboardDatabaseProvider
+	itemProv   *database.ItemDatabaseProvider
 	profitProv *providers.ItemProfitProvider
 }
