@@ -10,8 +10,8 @@ type Item {
     BuyFromVendorValue: Int
     MarketboardEntries: [MarketboardEntry!]!
     AssociatedLeve: CraftingLeve
-    LeveProfit(DataCenter: String!, HomeServer: String!, BuyFromOtherSevers: Boolean): ResaleInfo!
-    DcFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo!
-    VendorFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo!
-    RecipeProfit(BuyFromOtherSevers: Boolean, BuyCrystals: Boolean, DataCenter: String!, HomeServer: String!): RecipeResaleInfo!
+    LeveProfit(DataCenter: String!, HomeServer: String!, BuyFromOtherSevers: Boolean): ResaleInfo
+    DcFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo
+    VendorFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo
+    RecipeProfit(BuyFromOtherSevers: Boolean, BuyCrystals: Boolean, DataCenter: String!, HomeServer: String!): RecipeResaleInfo
 }

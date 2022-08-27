@@ -1018,10 +1018,10 @@ type Item {
     BuyFromVendorValue: Int
     MarketboardEntries: [MarketboardEntry!]!
     AssociatedLeve: CraftingLeve
-    LeveProfit(DataCenter: String!, HomeServer: String!, BuyFromOtherSevers: Boolean): ResaleInfo!
-    DcFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo!
-    VendorFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo!
-    RecipeProfit(BuyFromOtherSevers: Boolean, BuyCrystals: Boolean, DataCenter: String!, HomeServer: String!): RecipeResaleInfo!
+    LeveProfit(DataCenter: String!, HomeServer: String!, BuyFromOtherSevers: Boolean): ResaleInfo
+    DcFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo
+    VendorFlipProfit(DataCenter: String!, HomeServer: String!) : ResaleInfo
+    RecipeProfit(BuyFromOtherSevers: Boolean, BuyCrystals: Boolean, DataCenter: String!, HomeServer: String!): RecipeResaleInfo
 }`, BuiltIn: false},
 	{Name: "../schema/job.graphql", Input: `
 type Job {
@@ -2211,14 +2211,11 @@ func (ec *executionContext) _Item_LeveProfit(ctx context.Context, field graphql.
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(*schema.ResaleInfo)
 	fc.Result = res
-	return ec.marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
+	return ec.marshalOResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Item_LeveProfit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2280,14 +2277,11 @@ func (ec *executionContext) _Item_DcFlipProfit(ctx context.Context, field graphq
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(*schema.ResaleInfo)
 	fc.Result = res
-	return ec.marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
+	return ec.marshalOResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Item_DcFlipProfit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2349,14 +2343,11 @@ func (ec *executionContext) _Item_VendorFlipProfit(ctx context.Context, field gr
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(*schema.ResaleInfo)
 	fc.Result = res
-	return ec.marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
+	return ec.marshalOResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Item_VendorFlipProfit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2418,14 +2409,11 @@ func (ec *executionContext) _Item_RecipeProfit(ctx context.Context, field graphq
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(*schema.RecipeResaleInfo)
 	fc.Result = res
-	return ec.marshalNRecipeResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInfo(ctx, field.Selections, res)
+	return ec.marshalORecipeResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInfo(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Item_RecipeProfit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -8123,9 +8111,6 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 					}
 				}()
 				res = ec._Item_LeveProfit(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
 				return res
 			}
 
@@ -8143,9 +8128,6 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 					}
 				}()
 				res = ec._Item_DcFlipProfit(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
 				return res
 			}
 
@@ -8163,9 +8145,6 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 					}
 				}()
 				res = ec._Item_VendorFlipProfit(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
 				return res
 			}
 
@@ -8183,9 +8162,6 @@ func (ec *executionContext) _Item(ctx context.Context, sel ast.SelectionSet, obj
 					}
 				}()
 				res = ec._Item_RecipeProfit(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
 				return res
 			}
 
@@ -9723,24 +9699,6 @@ func (ec *executionContext) marshalNRecipePurchaseInfo2ᚖMarketMoogleAPIᚋcore
 	return ec._RecipePurchaseInfo(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRecipeResaleInfo2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInfo(ctx context.Context, sel ast.SelectionSet, v schema.RecipeResaleInfo) graphql.Marshaler {
-	return ec._RecipeResaleInfo(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNRecipeResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInfo(ctx context.Context, sel ast.SelectionSet, v *schema.RecipeResaleInfo) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._RecipeResaleInfo(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNResaleInfo2MarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx context.Context, sel ast.SelectionSet, v schema.ResaleInfo) graphql.Marshaler {
-	return ec._ResaleInfo(ctx, sel, &v)
-}
-
 func (ec *executionContext) marshalNResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx context.Context, sel ast.SelectionSet, v *schema.ResaleInfo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -10453,6 +10411,20 @@ func (ec *executionContext) marshalORecipeContents2ᚕᚖMarketMoogleAPIᚋcore�
 	}
 
 	return ret
+}
+
+func (ec *executionContext) marshalORecipeResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐRecipeResaleInfo(ctx context.Context, sel ast.SelectionSet, v *schema.RecipeResaleInfo) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._RecipeResaleInfo(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOResaleInfo2ᚖMarketMoogleAPIᚋcoreᚋgraphᚋmodelᚐResaleInfo(ctx context.Context, sel ast.SelectionSet, v *schema.ResaleInfo) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._ResaleInfo(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {

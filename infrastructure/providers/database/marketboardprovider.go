@@ -124,6 +124,11 @@ func (mbProv MarketboardDatabaseProvider) findMarketboardEntriesBy(ctx context.C
 	cursor, err := collection.Find(ctx, filter)
 
 	var marketboardEntries []*schema.MarketboardEntry
+	
+	if cursor == nil {
+		return marketboardEntries, nil
+	}
+	
 	for cursor.Next(ctx) {
 		marketEntry := schema.MarketboardEntry{}
 		err = cursor.Decode(&marketEntry)

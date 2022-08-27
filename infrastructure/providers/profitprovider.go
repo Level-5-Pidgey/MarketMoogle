@@ -111,18 +111,20 @@ func (profitProv ItemProfitProvider) GetVendorFlipProfit(ctx context.Context, ob
 	return minHomeValue - vendorValue, nil
 }
 
-func (profitProv ItemProfitProvider) getItemValue(marketEntries *schema.MarketboardEntry, homeServer string) int {
+func (profitProv ItemProfitProvider) getItemValue(marketEntries *schema.MarketboardEntry, server string) int {
 	result := 0
 
-	cheapestOnServer := profitProv.GetCheapestOnServer(marketEntries, homeServer)
+	cheapestOnServer := profitProv.GetCheapestOnServer(marketEntries, server)
 	if cheapestOnServer.TotalPrice == profitProv.maxValue {
 		result = int(marketEntries.CurrentAveragePrice)
+	} else {
+		result = cheapestOnServer.PricePer
 	}
 
 	return result
 }
 
-func (profitProv ItemProfitProvider) getRecipeResaleInfo(ctx context.Context, recipe *schema.Recipe, buyCrystals *bool, buyFromOtherServers *bool, homeServer string, dataCenter string, itemValue int) (*schema.ResaleInfo, error) {
+func (profitProv ItemProfitProvider) getRecipeResaleInfo(ctx context.Context, recipe *schema.Recipe, buyCrystals *bool, buyFromOtherServers *bool, homeServer string, dataCenter string) (*schema.ResaleInfo, error) {
 	result := &schema.ResaleInfo{
 		Profit:          0,
 		ItemID:          recipe.ItemResultID,
@@ -165,7 +167,8 @@ func (profitProv ItemProfitProvider) getRecipeResaleInfo(ctx context.Context, re
 			}
 		}
 
-		result.Profit = itemValue - recipeCost
+		result.TotalCost = recipeCost
+		result.SingleCost = recipeCost / recipe.ResultQuantity
 	}
 
 	return result, nil
@@ -179,25 +182,25 @@ func (profitProv ItemProfitProvider) GetResaleInfoForItem(ctx context.Context, o
 	}
 
 	if obj == nil {
-		return &result, nil
+		return nil, nil
 	}
 
 	itemRecipes, err := profitProv.recipeProvider.FindRecipesByItemId(ctx, obj.ItemID)
 	if err != nil {
 		log.Fatal(err)
-		return &result, err
+		return nil, err
 	}
 
 	//If the item has no recipes, there's no crafting profit to be had
 	if len(itemRecipes) == 0 {
-		return &result, nil
+		return nil, nil
 	}
 
 	//Get the sell value of the item on the player's home server
 	mbEntry, err := profitProv.marketboardProvider.FindItemEntryOnDc(ctx, obj.ItemID, dataCenter)
 	if err != nil {
 		log.Fatal(err)
-		return &result, err
+		return nil, err
 	}
 
 	if mbEntry == nil || len(mbEntry.MarketEntries) == 0 {
@@ -207,7 +210,6 @@ func (profitProv ItemProfitProvider) GetResaleInfoForItem(ctx context.Context, o
 	//Get the value of the item on the player's server (or the average going price currently)
 	itemValue := profitProv.getItemValue(mbEntry, homeServer)
 
-	recipeCost := 0
 	craftType := schema.CrafterType("")
 	craftLevel := 0
 
@@ -224,7 +226,7 @@ func (profitProv ItemProfitProvider) GetResaleInfoForItem(ctx context.Context, o
 		craftLevel = *itemRecipe.RecipeLevel
 
 		recipeResaleInfo, err := profitProv.getRecipeResaleInfo(
-			ctx, itemRecipe, buyCrystals, buyFromOtherServers, homeServer, dataCenter, itemValue)
+			ctx, itemRecipe, buyCrystals, buyFromOtherServers, homeServer, dataCenter)
 
 		if err != nil {
 			log.Fatal(err)
@@ -234,9 +236,7 @@ func (profitProv ItemProfitProvider) GetResaleInfoForItem(ctx context.Context, o
 		result.ResaleInfo = recipeResaleInfo
 	}
 
-	result.ResaleInfo.SingleCost = recipeCost
-	result.ResaleInfo.TotalCost = recipeCost
-	result.ResaleInfo.Profit = itemValue - recipeCost
+	result.ResaleInfo.Profit = itemValue - result.ResaleInfo.TotalCost
 	result.CraftType = craftType
 	result.CraftLevel = craftLevel
 
@@ -326,7 +326,7 @@ func (profitProv ItemProfitProvider) getHomeAndAwayItems(marketEntry *schema.Mar
 	if sameServerFlip {
 		return awayEntry, homeEntry
 	}
-	
+
 	return homeEntry, awayEntry
 }
 
