@@ -101,6 +101,7 @@ func main() {
 		"Zurvan",
 		"Bismarck",
 	}
+	
 	//Periodically ping for new market data.
 	go interval(mongoDbClient, servers, 75)
 
@@ -116,6 +117,8 @@ func interval(dbClient *database.DatabaseClient, servers []string, transCount in
 		}
 
 		err := intervalMarketDataUpdate(dbClient, servers[index], transCount)
+
+		index++
 
 		if err != nil {
 			log.Fatal(err)
