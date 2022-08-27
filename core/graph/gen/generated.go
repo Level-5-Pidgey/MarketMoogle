@@ -150,8 +150,10 @@ type ComplexityRoot struct {
 	RecipePurchaseInfo struct {
 		BuyFromVendor   func(childComplexity int) int
 		Item            func(childComplexity int) int
-		ItemCost        func(childComplexity int) int
+		Quantity        func(childComplexity int) int
 		ServerToBuyFrom func(childComplexity int) int
+		SingleCost      func(childComplexity int) int
+		TotalCost       func(childComplexity int) int
 	}
 
 	RecipeResaleInfo struct {
@@ -790,12 +792,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.RecipePurchaseInfo.Item(childComplexity), true
 
-	case "RecipePurchaseInfo.ItemCost":
-		if e.complexity.RecipePurchaseInfo.ItemCost == nil {
+	case "RecipePurchaseInfo.Quantity":
+		if e.complexity.RecipePurchaseInfo.Quantity == nil {
 			break
 		}
 
-		return e.complexity.RecipePurchaseInfo.ItemCost(childComplexity), true
+		return e.complexity.RecipePurchaseInfo.Quantity(childComplexity), true
 
 	case "RecipePurchaseInfo.ServerToBuyFrom":
 		if e.complexity.RecipePurchaseInfo.ServerToBuyFrom == nil {
@@ -803,6 +805,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.RecipePurchaseInfo.ServerToBuyFrom(childComplexity), true
+
+	case "RecipePurchaseInfo.SingleCost":
+		if e.complexity.RecipePurchaseInfo.SingleCost == nil {
+			break
+		}
+
+		return e.complexity.RecipePurchaseInfo.SingleCost(childComplexity), true
+
+	case "RecipePurchaseInfo.TotalCost":
+		if e.complexity.RecipePurchaseInfo.TotalCost == nil {
+			break
+		}
+
+		return e.complexity.RecipePurchaseInfo.TotalCost(childComplexity), true
 
 	case "RecipeResaleInfo.CraftLevel":
 		if e.complexity.RecipeResaleInfo.CraftLevel == nil {
@@ -1125,7 +1141,9 @@ type RecipePurchaseInfo {
     Item: Item!
     ServerToBuyFrom: String!
     BuyFromVendor: Boolean!
-    ItemCost: Int!
+    SingleCost: Int!
+    TotalCost: Int!
+    Quantity: Int!
 }`, BuiltIn: false},
 	{Name: "../schema/user.graphql", Input: `
 type User {
@@ -5300,8 +5318,8 @@ func (ec *executionContext) fieldContext_RecipePurchaseInfo_BuyFromVendor(ctx co
 	return fc, nil
 }
 
-func (ec *executionContext) _RecipePurchaseInfo_ItemCost(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInfo) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_RecipePurchaseInfo_ItemCost(ctx, field)
+func (ec *executionContext) _RecipePurchaseInfo_SingleCost(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipePurchaseInfo_SingleCost(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -5314,7 +5332,7 @@ func (ec *executionContext) _RecipePurchaseInfo_ItemCost(ctx context.Context, fi
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.ItemCost, nil
+		return obj.SingleCost, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5331,7 +5349,95 @@ func (ec *executionContext) _RecipePurchaseInfo_ItemCost(ctx context.Context, fi
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_RecipePurchaseInfo_ItemCost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_RecipePurchaseInfo_SingleCost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RecipePurchaseInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RecipePurchaseInfo_TotalCost(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipePurchaseInfo_TotalCost(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalCost, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RecipePurchaseInfo_TotalCost(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "RecipePurchaseInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _RecipePurchaseInfo_Quantity(ctx context.Context, field graphql.CollectedField, obj *schema.RecipePurchaseInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_RecipePurchaseInfo_Quantity(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Quantity, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_RecipePurchaseInfo_Quantity(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "RecipePurchaseInfo",
 		Field:      field,
@@ -5755,8 +5861,12 @@ func (ec *executionContext) fieldContext_ResaleInfo_ItemsToPurchase(ctx context.
 				return ec.fieldContext_RecipePurchaseInfo_ServerToBuyFrom(ctx, field)
 			case "BuyFromVendor":
 				return ec.fieldContext_RecipePurchaseInfo_BuyFromVendor(ctx, field)
-			case "ItemCost":
-				return ec.fieldContext_RecipePurchaseInfo_ItemCost(ctx, field)
+			case "SingleCost":
+				return ec.fieldContext_RecipePurchaseInfo_SingleCost(ctx, field)
+			case "TotalCost":
+				return ec.fieldContext_RecipePurchaseInfo_TotalCost(ctx, field)
+			case "Quantity":
+				return ec.fieldContext_RecipePurchaseInfo_Quantity(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type RecipePurchaseInfo", field.Name)
 		},
@@ -8871,9 +8981,23 @@ func (ec *executionContext) _RecipePurchaseInfo(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "ItemCost":
+		case "SingleCost":
 
-			out.Values[i] = ec._RecipePurchaseInfo_ItemCost(ctx, field, obj)
+			out.Values[i] = ec._RecipePurchaseInfo_SingleCost(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "TotalCost":
+
+			out.Values[i] = ec._RecipePurchaseInfo_TotalCost(ctx, field, obj)
+
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "Quantity":
+
+			out.Values[i] = ec._RecipePurchaseInfo_Quantity(ctx, field, obj)
 
 			if out.Values[i] == graphql.Null {
 				invalids++

@@ -102,7 +102,7 @@ func main() {
 		"Bismarck",
 	}
 	//Periodically ping for new market data.
-	go interval(mongoDbClient, servers, 50)
+	go interval(mongoDbClient, servers, 75)
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
@@ -110,7 +110,7 @@ func main() {
 
 func interval(dbClient *database.DatabaseClient, servers []string, transCount int) {
 	index := 0
-	for range time.Tick(time.Minute * 5) {
+	for range time.Tick(time.Minute * 4) {
 		if index > len(servers) {
 			index = 0
 		}
@@ -174,7 +174,7 @@ func intervalMarketDataUpdate(dbClient *database.DatabaseClient, server string, 
 					log.Fatal(err)
 					return err
 				} else {
-					fmt.Printf("%d \t| Updated within %s.\n", item.ItemID, dataCenter)
+					fmt.Printf("%d \t| Updated within %s.\n", item.ItemID, server)
 				}
 			} else {
 				fmt.Printf("%d \t| Skipped updating within %s - already updated recently.\n", item.ItemID, dataCenter)

@@ -66,7 +66,9 @@ type RecipePurchaseInfo struct {
 	Item            *Item  `json:"Item"`
 	ServerToBuyFrom string `json:"ServerToBuyFrom"`
 	BuyFromVendor   bool   `json:"BuyFromVendor"`
-	ItemCost        int    `json:"ItemCost"`
+	SingleCost      int    `json:"SingleCost"`
+	TotalCost       int    `json:"TotalCost"`
+	Quantity        int    `json:"Quantity"`
 }
 
 type RecipeResaleInfo struct {

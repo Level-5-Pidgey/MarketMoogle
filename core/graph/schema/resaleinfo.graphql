@@ -12,5 +12,7 @@ type RecipePurchaseInfo {
     Item: Item!
     ServerToBuyFrom: String!
     BuyFromVendor: Boolean!
-    ItemCost: Int!
+    SingleCost: Int!
+    TotalCost: Int!
+    Quantity: Int!
 }

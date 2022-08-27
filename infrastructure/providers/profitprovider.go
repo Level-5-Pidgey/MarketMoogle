@@ -36,17 +36,20 @@ func NewItemProfitProvider(recipeProv database.RecipeProvider, mbProv database.M
 	return &prov
 }
 
-func (profitProv ItemProfitProvider) GetRecipePurchaseInfo(componentItem *schema.Item, mbEntry *schema.MarketboardEntry, homeServer string, buyFromOtherServers *bool) *schema.RecipePurchaseInfo {
+func (profitProv ItemProfitProvider) GetRecipePurchaseInfo(componentItem *schema.Item, mbEntry *schema.MarketboardEntry, homeServer string, buyFromOtherServers *bool, count int) *schema.RecipePurchaseInfo {
 	result := schema.RecipePurchaseInfo{
 		Item:            componentItem,
 		ServerToBuyFrom: homeServer,
 		BuyFromVendor:   false,
-		ItemCost:        profitProv.maxValue,
+		SingleCost:      profitProv.maxValue,
+		TotalCost:       profitProv.maxValue,
+		Quantity:        count,
 	}
 
 	//Always buy from a vendor if possible, before going to the market board
 	if componentItem.BuyFromVendorValue != nil {
-		result.ItemCost = *componentItem.BuyFromVendorValue
+		result.SingleCost = *componentItem.BuyFromVendorValue
+		result.TotalCost = *componentItem.BuyFromVendorValue * result.Quantity
 		result.BuyFromVendor = true
 	} else {
 		if mbEntry == nil {
@@ -64,10 +67,11 @@ func (profitProv ItemProfitProvider) GetRecipePurchaseInfo(componentItem *schema
 
 		//If there are no market entries available, grab the listed average price instead
 		if cheapestEntry.TotalPrice == profitProv.maxValue {
-			result.ItemCost = int(mbEntry.CurrentAveragePrice)
+			result.SingleCost = int(mbEntry.CurrentAveragePrice)
 		}
 
-		result.ItemCost = cheapestEntry.PricePer
+		result.SingleCost = cheapestEntry.PricePer
+		result.TotalCost = cheapestEntry.PricePer * result.Quantity
 		result.ServerToBuyFrom = cheapestEntry.Server
 	}
 
@@ -155,13 +159,13 @@ func (profitProv ItemProfitProvider) getRecipeResaleInfo(ctx context.Context, re
 				return result, err
 			}
 
-			itemPurchaseInfo := profitProv.GetRecipePurchaseInfo(componentItem, itemMarketboardEntry, homeServer, buyFromOtherServers)
+			itemPurchaseInfo := profitProv.GetRecipePurchaseInfo(componentItem, itemMarketboardEntry, homeServer, buyFromOtherServers, recipeComponent.Count)
 
-			if itemPurchaseInfo.ItemCost != profitProv.maxValue {
+			if itemPurchaseInfo.SingleCost != profitProv.maxValue {
 				result.ItemsToPurchase = append(result.ItemsToPurchase, itemPurchaseInfo)
 
 				//Update the cost of this recipe.
-				recipeCost += itemPurchaseInfo.ItemCost * recipeComponent.Count
+				recipeCost += itemPurchaseInfo.SingleCost * recipeComponent.Count
 			} else {
 				break
 			}
@@ -248,13 +252,15 @@ func (profitProv ItemProfitProvider) GetCrossDcResaleProfit(ctx context.Context,
 		Item:            obj,
 		ServerToBuyFrom: homeServer,
 		BuyFromVendor:   false,
-		ItemCost:        profitProv.maxValue,
+		SingleCost:      profitProv.maxValue,
+		TotalCost:       profitProv.maxValue,
+		Quantity:        1,
 	}
 
 	result := schema.ResaleInfo{
 		Profit:          0,
 		ItemID:          0,
-		Quantity:        0,
+		Quantity:        1,
 		SingleCost:      profitProv.maxValue,
 		TotalCost:       profitProv.maxValue,
 		ItemsToPurchase: []*schema.RecipePurchaseInfo{},
@@ -285,10 +291,11 @@ func (profitProv ItemProfitProvider) GetCrossDcResaleProfit(ctx context.Context,
 
 	//Update result
 	itemToPurchase.ServerToBuyFrom = awayEntry.Server
-	itemToPurchase.ItemCost = awayEntry.PricePer
+	itemToPurchase.SingleCost = awayEntry.PricePer
+	itemToPurchase.TotalCost = awayEntry.TotalPrice
 
-	result.SingleCost = awayEntry.PricePer
-	result.TotalCost = awayEntry.TotalPrice
+	result.SingleCost = itemToPurchase.SingleCost
+	result.TotalCost = itemToPurchase.TotalCost
 	result.Quantity = awayEntry.Quantity
 	result.Profit = profit * awayEntry.Quantity
 	result.ItemsToPurchase = append(result.ItemsToPurchase, &itemToPurchase)

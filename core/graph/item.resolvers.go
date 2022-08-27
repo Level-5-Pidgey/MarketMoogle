@@ -49,7 +49,9 @@ func (r *itemResolver) VendorFlipProfit(ctx context.Context, obj *schema.Item, d
 		Item:            obj,
 		ServerToBuyFrom: homeServer,
 		BuyFromVendor:   true,
-		ItemCost:        vendorPrice,
+		SingleCost:      vendorPrice,
+		TotalCost:       vendorPrice,
+		Quantity:        1,
 	}
 
 	resaleProfit, err := r.profitProv.GetVendorFlipProfit(ctx, obj, dataCenter, homeServer)
