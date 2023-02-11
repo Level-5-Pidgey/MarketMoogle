@@ -287,7 +287,7 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 				ItemID:          1,
 				Quantity:        0,
 				SingleCost:      math.MaxInt32,
-				TotalCost:       0,
+				TotalCost:       math.MaxInt32,
 				ItemsToPurchase: []*schema.RecipePurchaseInfo{},
 			},
 			wantErr: false,

@@ -287,7 +287,10 @@ func (profitProv ItemProfitProvider) GetCrossDcResaleProfit(ctx context.Context,
 	homeEntry, awayEntry := profitProv.getHomeAndAwayItems(marketEntry, homeServer)
 
 	//Calculate profit per item
-	profit := (homeEntry.PricePer * awayEntry.Quantity) - awayEntry.TotalCost
+	profit := 0
+	if homeEntry.PricePer != profitProv.maxValue {
+		profit = (homeEntry.PricePer * awayEntry.Quantity) - awayEntry.TotalCost
+	}
 
 	//Update result
 	itemToPurchase.ServerToBuyFrom = awayEntry.Server
@@ -316,8 +319,27 @@ func (profitProv ItemProfitProvider) getHomeAndAwayItems(marketEntry *schema.Mar
 	homeEntry = profitProv.GetCheapestOnServer(marketEntry, homeServer)
 	priceEntries := marketEntry.MarketEntries
 
+	bestProfit := 0
 	for _, entry := range priceEntries {
-		if entry.PricePer < awayEntry.PricePer && entry.PricePer > homeEntry.PricePer {
+		profit := 0
+		
+		if entry.Server == homeServer {
+			//Even though the profit margin would be higher, players will only buy the cheapest items
+			if entry.PricePer >= awayEntry.PricePer {
+				continue
+			}
+			
+			profit = entry.PricePer - homeEntry.PricePer
+		} else {
+			profit = homeEntry.PricePer - entry.PricePer
+		}
+		
+		if profit <= 0 {
+			continue
+		}
+		
+		if profit > bestProfit {
+			bestProfit = profit
 			awayEntry = entry
 		}
 	}
@@ -348,7 +370,7 @@ func (profitProv ItemProfitProvider) GetCheapestOnServer(entry *schema.Marketboa
 			continue
 		}
 
-		if marketEntry.PricePer < result.PricePer  {
+		if marketEntry.PricePer < result.PricePer {
 			result = marketEntry
 		}
 	}
