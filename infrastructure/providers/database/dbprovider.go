@@ -8,6 +8,8 @@ package database
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -49,6 +51,20 @@ func NewDatabaseClient(dbName string, uri string, credentials options.Credential
 	}
 }
 
+func (dbClient DatabaseClient) GetDatabaseName() string {
+	return dbClient.databaseName
+}
+
+func (dbClient DatabaseClient) GetDatabase(databaseName string) (*mongo.Database, error) {
+	db := dbClient.client.Database(databaseName)
+
+	if db == nil {
+		return nil, errors.New(fmt.Sprintf("unable to locate database with name %s", databaseName))
+	}
+
+	return db, nil
+}
+
 func (dbClient DatabaseClient) CollectionExists(ctx context.Context, collectionName string, database *mongo.Database) (bool, error) {
 	databaseCollections, err := database.ListCollectionNames(ctx, bson.D{})
 
@@ -73,6 +89,39 @@ func (dbClient DatabaseClient) UpsertCollection(ctx context.Context, collectionN
 	}
 
 	return database.CreateCollection(ctx, collectionName)
+}
+
+func (dbClient DatabaseClient) GetCollection(collectionName string) (*mongo.Collection, error) {
+	dbName := dbClient.GetDatabaseName()
+	db, err := dbClient.GetDatabase(dbName)
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	coll := db.Collection(collectionName)
+	
+	if coll == nil {
+		return nil, errors.New(fmt.Sprintf("unable to locate collection with name %s in database %s", collectionName, dbName))
+	}
+	
+	return coll, nil
+}
+
+func (dbClient DatabaseClient) GetCollectionOnDatabase(collectionName string, databaseName string) (*mongo.Collection, error) {
+	db, err := dbClient.GetDatabase(databaseName)
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	coll := db.Collection(collectionName)
+	
+	if coll == nil {
+		return nil, errors.New(fmt.Sprintf("unable to locate collection with name %s in database %s", collectionName, databaseName))
+	}
+	
+	return coll, nil
 }
 
 func (dbClient DatabaseClient) FindOne(ctx context.Context, collectionName string, filter interface{}, opts ...*options.FindOneOptions) (*mongo.SingleResult, error) {
@@ -147,8 +196,8 @@ func (dbClient DatabaseClient) CreateIndex(ctx context.Context, collectionName s
 		Keys:    keys,
 		Options: opts,
 	}
-	
+
 	_, err := dbClient.client.Database(dbClient.databaseName).Collection(collectionName).Indexes().CreateOne(ctx, model)
-	
+
 	return err
 }

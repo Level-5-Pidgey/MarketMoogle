@@ -17,14 +17,19 @@ import (
 	"reflect"
 )
 
-func MakePaginatedRequest(contentType string, page int) (*xivapi.PaginatedContent, error) {
-	url := fmt.Sprintf("https://xivapi.com/%s?page=%d", contentType, page)
+func MakePaginatedRequest(contentType string, page int, apiKey string) (*xivapi.PaginatedContent, error) {
+	queryOptions := fmt.Sprintf("?page=%d", page)
+	if apiKey != "" {
+		queryOptions = fmt.Sprintf("%s&page=%d", apiKey, page)
+	}
+	
+	url := fmt.Sprintf("https://xivapi.com/%s%s", contentType, queryOptions)
 
 	return MakeApiRequest[xivapi.PaginatedContent](url)
 }
 
-func MakeXivApiContentRequest[T any](contentType string, id int) (*T, error) {
-	url := fmt.Sprintf("https://xivapi.com/%s/%d", contentType, id)
+func MakeXivApiContentRequest[T any](contentType string, id int, apiKeyString string) (*T, error) {
+	url := fmt.Sprintf("https://xivapi.com/%s/%d%s", contentType, id, apiKeyString)
 
 	return MakeApiRequest[T](url)
 }
@@ -34,6 +39,11 @@ func MakeApiRequest[T any](urlString string) (*T, error) {
 	if requestError != nil {
 		log.Fatal(requestError)
 		return nil, requestError
+	}
+	
+	//API has a DNS problem or is offline, cancel unmarshalling
+	if resp.StatusCode == 522 {
+		return nil, errors.New("522 code returned from api request")
 	}
 
 	body, readAllError := ioutil.ReadAll(resp.Body)

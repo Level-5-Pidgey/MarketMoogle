@@ -7,6 +7,7 @@
 package database
 
 import (
+	interfaces "MarketMoogleAPI/business/database"
 	"MarketMoogleAPI/core/apitypes/universalis"
 	schema "MarketMoogleAPI/core/graph/model"
 	"context"
@@ -17,12 +18,12 @@ import (
 )
 
 type MarketboardDatabaseProvider struct {
-	db                *DatabaseClient
+	db                interfaces.MongoClient
 	listingsPerServer int
 	collectionName    string
 }
 
-func NewMarketboardDatabaseProvider(dbClient *DatabaseClient) *MarketboardDatabaseProvider {
+func NewMarketboardDatabaseProvider(dbClient interfaces.MongoClient) *MarketboardDatabaseProvider {
 	return &MarketboardDatabaseProvider{
 		db:                dbClient,
 		listingsPerServer: 8,
@@ -94,7 +95,12 @@ func (mbProv MarketboardDatabaseProvider) FindMarketboardEntriesByItemId(ctx con
 }
 
 func (mbProv MarketboardDatabaseProvider) FindItemEntryOnDc(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error) {
-	collection := mbProv.db.client.Database(mbProv.db.databaseName).Collection(mbProv.collectionName)
+	collection, err := mbProv.db.GetCollection(mbProv.collectionName)
+	
+	if err != nil {
+		return nil, err
+	}
+	
 	cursor, err := collection.Find(ctx, bson.M{"itemid": itemId, "datacenter": dataCenter})
 
 	marketEntry := schema.MarketboardEntry{}
@@ -120,15 +126,20 @@ func (mbProv MarketboardDatabaseProvider) GetAllMarketboardEntries(ctx context.C
 }
 
 func (mbProv MarketboardDatabaseProvider) findMarketboardEntriesBy(ctx context.Context, filter bson.M) ([]*schema.MarketboardEntry, error) {
-	collection := mbProv.db.client.Database(mbProv.db.databaseName).Collection(mbProv.collectionName)
+	collection, err := mbProv.db.GetCollection(mbProv.collectionName)
+
+	if err != nil {
+		return nil, err
+	}
+	
 	cursor, err := collection.Find(ctx, filter)
 
 	var marketboardEntries []*schema.MarketboardEntry
-	
+
 	if cursor == nil {
 		return marketboardEntries, nil
 	}
-	
+
 	for cursor.Next(ctx) {
 		marketEntry := schema.MarketboardEntry{}
 		err = cursor.Decode(&marketEntry)

@@ -8,6 +8,7 @@ package universalis
 
 import (
 	schema "MarketMoogleAPI/core/graph/model"
+	"sort"
 	"strconv"
 )
 
@@ -99,7 +100,7 @@ func (query MarketQuery) GetMarketEntries(listingsPerServer int) []*schema.Marke
 			Server:       listing.WorldName,
 			Quantity:     listing.Quantity,
 			PricePer:     listing.PricePerUnit,
-			TotalPrice:   listing.Total,
+			TotalCost:    listing.Total,
 			Hq:           listing.Hq,
 			IsCrafted:    listing.IsCrafted,
 			RetainerName: &listing.RetainerName,
@@ -107,6 +108,11 @@ func (query MarketQuery) GetMarketEntries(listingsPerServer int) []*schema.Marke
 
 		marketEntries = append(marketEntries, &entry)
 	}
+
+	//Sort list by price per before returning
+	sort.Slice(marketEntries, func(i, j int) bool {
+		return marketEntries[i].PricePer < marketEntries[j].PricePer
+	})
 
 	return marketEntries
 }

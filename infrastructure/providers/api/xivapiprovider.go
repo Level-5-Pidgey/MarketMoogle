@@ -10,26 +10,39 @@ import (
 	"MarketMoogleAPI/core/apitypes/xivapi"
 	"fmt"
 	"log"
+	"os"
 )
 
-type XivApiProvider struct{}
+type XivApiProvider struct {
+	privateKeyString string
+}
 
-func (p XivApiProvider) GetLodestoneInfoById(lodestoneId *int) (*xivapi.LodestoneUser, error) {
-	url := fmt.Sprintf("https://xivapi.com/character/%d", *lodestoneId)
+func NewXivApiProvider() *XivApiProvider {
+	keyString := ""
+	if os.Getenv("XIV_API_KEY") != "" {
+		keyString = fmt.Sprintf("?private_key=%s", os.Getenv("XIV_API_KEY"))
+	}
+	
+	return &XivApiProvider {
+		privateKeyString: keyString,
+	}
+}
+func (p XivApiProvider) GetLodestoneInfoById(lodestoneId int) (*xivapi.LodestoneUser, error) {
+	url := fmt.Sprintf("https://xivapi.com/character/%d%s", lodestoneId, p.privateKeyString)
 
 	return MakeApiRequest[xivapi.LodestoneUser](url)
 }
 
 func (p XivApiProvider) GetGameItemById(contentId int) (*xivapi.GameItem, error) {
-	return MakeXivApiContentRequest[xivapi.GameItem]("Item", contentId)
+	return MakeXivApiContentRequest[xivapi.GameItem]("Item", contentId, p.privateKeyString)
 }
 
 func (p XivApiProvider) GetRecipeIdByItemId(contentId int) (*xivapi.RecipeLookup, error) {
-	return MakeXivApiContentRequest[xivapi.RecipeLookup]("RecipeLookup", contentId)
+	return MakeXivApiContentRequest[xivapi.RecipeLookup]("RecipeLookup", contentId, p.privateKeyString)
 }
 
 func (p XivApiProvider) GetItemsAndPrices(shopId int) (map[int]int, error) {
-	gilShop, err := getShopById(shopId)
+	gilShop, err := p.getShopById(shopId)
 
 	if err != nil {
 		return nil, err
@@ -43,21 +56,21 @@ func (p XivApiProvider) GetItemsAndPrices(shopId int) (map[int]int, error) {
 	return itemAndPrice, nil
 }
 
-func getShopById(shopId int) (*xivapi.GilShop, error) {
-	return MakeXivApiContentRequest[xivapi.GilShop]("GilShop", shopId)
+func (p XivApiProvider) getShopById(shopId int) (*xivapi.GilShop, error) {
+	return MakeXivApiContentRequest[xivapi.GilShop]("GilShop", shopId, p.privateKeyString)
 }
 
 func (p XivApiProvider) GetLeveById(craftLeveId int) (*xivapi.CraftLeve, error) {
-	return MakeXivApiContentRequest[xivapi.CraftLeve]("CraftLeve", craftLeveId)
+	return MakeXivApiContentRequest[xivapi.CraftLeve]("CraftLeve", craftLeveId, p.privateKeyString)
 }
 
 func (p XivApiProvider) GetCraftLeves() (*[]int, error) {
-	return getPaginatedIds("CraftLeve")
+	return p.getPaginatedIds("CraftLeve")
 }
 
-func getPaginatedIds(contentType string) (*[]int, error) {
+func (p XivApiProvider) getPaginatedIds(contentType string) (*[]int, error) {
 	page := 1
-	pageContent, err := MakePaginatedRequest(contentType, page)
+	pageContent, err := MakePaginatedRequest(contentType, page, p.privateKeyString)
 
 	if err != nil {
 		log.Fatal(err)
@@ -70,7 +83,7 @@ func getPaginatedIds(contentType string) (*[]int, error) {
 	//Loop through for rest of queries
 	for page = 2; page < pageContent.Pagination.PageTotal; page++ {
 		fmt.Printf("API Request : Retrieved Page %d\n", page)
-		pageContent, err := MakePaginatedRequest(contentType, page)
+		pageContent, err := MakePaginatedRequest(contentType, page, p.privateKeyString)
 
 		if err != nil {
 			log.Fatal(err)
@@ -84,11 +97,11 @@ func getPaginatedIds(contentType string) (*[]int, error) {
 }
 
 func (p XivApiProvider) GetShops() (*[]int, error) {
-	return getPaginatedIds("GilShop")
+	return p.getPaginatedIds("GilShop")
 }
 
 func (p XivApiProvider) GetItems() (*[]int, error) {
-	return getPaginatedIds("Item")
+	return p.getPaginatedIds("Item")
 }
 
 func getNonBlankIds(page *xivapi.PaginatedContent) []int {

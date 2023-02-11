@@ -456,7 +456,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.MarketEntry.ServerID(childComplexity), true
 
-	case "MarketEntry.TotalPrice":
+	case "MarketEntry.TotalCost":
 		if e.complexity.MarketEntry.TotalPrice == nil {
 			break
 		}
@@ -498,7 +498,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.MarketHistory.ServerID(childComplexity), true
 
-	case "MarketHistory.TotalPrice":
+	case "MarketHistory.TotalCost":
 		if e.complexity.MarketHistory.TotalPrice == nil {
 			break
 		}
@@ -806,7 +806,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.RecipePurchaseInfo.ServerToBuyFrom(childComplexity), true
 
-	case "RecipePurchaseInfo.SingleCost":
+	case "RecipePurchaseInfo.PricePer":
 		if e.complexity.RecipePurchaseInfo.SingleCost == nil {
 			break
 		}
@@ -869,7 +869,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.ResaleInfo.Quantity(childComplexity), true
 
-	case "ResaleInfo.SingleCost":
+	case "ResaleInfo.PricePer":
 		if e.complexity.ResaleInfo.SingleCost == nil {
 			break
 		}
@@ -1054,7 +1054,7 @@ input JobInput {
     ServerId: Int!
     Server: String!
     Quantity: Int!
-    TotalPrice: Int!
+    TotalCost: Int!
     PricePer: Int!
     Hq: Boolean!
     IsCrafted: Boolean!
@@ -1065,7 +1065,7 @@ type MarketHistory {
     ServerId: Int!
     Server: String!
     Quantity: Int!
-    TotalPrice: Int!
+    TotalCost: Int!
     PricePer: Int!
     Hq: Boolean!
     TransactionTime: Timestamp!
@@ -1132,7 +1132,7 @@ type ResaleInfo {
     Profit: Int!
     ItemId: Int!
     Quantity: Int!
-    SingleCost: Int!
+    PricePer: Int!
     TotalCost: Int!
     ItemsToPurchase: [RecipePurchaseInfo!]!
 }
@@ -1141,7 +1141,7 @@ type RecipePurchaseInfo {
     Item: Item!
     ServerToBuyFrom: String!
     BuyFromVendor: Boolean!
-    SingleCost: Int!
+    PricePer: Int!
     TotalCost: Int!
     Quantity: Int!
 }`, BuiltIn: false},
@@ -2250,7 +2250,7 @@ func (ec *executionContext) fieldContext_Item_LeveProfit(ctx context.Context, fi
 				return ec.fieldContext_ResaleInfo_ItemId(ctx, field)
 			case "Quantity":
 				return ec.fieldContext_ResaleInfo_Quantity(ctx, field)
-			case "SingleCost":
+			case "PricePer":
 				return ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
 			case "TotalCost":
 				return ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
@@ -2316,7 +2316,7 @@ func (ec *executionContext) fieldContext_Item_DcFlipProfit(ctx context.Context, 
 				return ec.fieldContext_ResaleInfo_ItemId(ctx, field)
 			case "Quantity":
 				return ec.fieldContext_ResaleInfo_Quantity(ctx, field)
-			case "SingleCost":
+			case "PricePer":
 				return ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
 			case "TotalCost":
 				return ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
@@ -2382,7 +2382,7 @@ func (ec *executionContext) fieldContext_Item_VendorFlipProfit(ctx context.Conte
 				return ec.fieldContext_ResaleInfo_ItemId(ctx, field)
 			case "Quantity":
 				return ec.fieldContext_ResaleInfo_Quantity(ctx, field)
-			case "SingleCost":
+			case "PricePer":
 				return ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
 			case "TotalCost":
 				return ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
@@ -2744,7 +2744,7 @@ func (ec *executionContext) _MarketEntry_TotalPrice(ctx context.Context, field g
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.TotalPrice, nil
+		return obj.TotalCost, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3385,7 +3385,7 @@ func (ec *executionContext) fieldContext_MarketboardEntry_MarketEntries(ctx cont
 				return ec.fieldContext_MarketEntry_Server(ctx, field)
 			case "Quantity":
 				return ec.fieldContext_MarketEntry_Quantity(ctx, field)
-			case "TotalPrice":
+			case "TotalCost":
 				return ec.fieldContext_MarketEntry_TotalPrice(ctx, field)
 			case "PricePer":
 				return ec.fieldContext_MarketEntry_PricePer(ctx, field)
@@ -3444,7 +3444,7 @@ func (ec *executionContext) fieldContext_MarketboardEntry_MarketHistory(ctx cont
 				return ec.fieldContext_MarketHistory_Server(ctx, field)
 			case "Quantity":
 				return ec.fieldContext_MarketHistory_Quantity(ctx, field)
-			case "TotalPrice":
+			case "TotalCost":
 				return ec.fieldContext_MarketHistory_TotalPrice(ctx, field)
 			case "PricePer":
 				return ec.fieldContext_MarketHistory_PricePer(ctx, field)
@@ -5332,7 +5332,7 @@ func (ec *executionContext) _RecipePurchaseInfo_SingleCost(ctx context.Context, 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.SingleCost, nil
+		return obj.PricePer, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5495,7 +5495,7 @@ func (ec *executionContext) fieldContext_RecipeResaleInfo_ResaleInfo(ctx context
 				return ec.fieldContext_ResaleInfo_ItemId(ctx, field)
 			case "Quantity":
 				return ec.fieldContext_ResaleInfo_Quantity(ctx, field)
-			case "SingleCost":
+			case "PricePer":
 				return ec.fieldContext_ResaleInfo_SingleCost(ctx, field)
 			case "TotalCost":
 				return ec.fieldContext_ResaleInfo_TotalCost(ctx, field)
@@ -5861,7 +5861,7 @@ func (ec *executionContext) fieldContext_ResaleInfo_ItemsToPurchase(ctx context.
 				return ec.fieldContext_RecipePurchaseInfo_ServerToBuyFrom(ctx, field)
 			case "BuyFromVendor":
 				return ec.fieldContext_RecipePurchaseInfo_BuyFromVendor(ctx, field)
-			case "SingleCost":
+			case "PricePer":
 				return ec.fieldContext_RecipePurchaseInfo_SingleCost(ctx, field)
 			case "TotalCost":
 				return ec.fieldContext_RecipePurchaseInfo_TotalCost(ctx, field)
@@ -8363,7 +8363,7 @@ func (ec *executionContext) _MarketEntry(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "TotalPrice":
+		case "TotalCost":
 
 			out.Values[i] = ec._MarketEntry_TotalPrice(ctx, field, obj)
 
@@ -8437,7 +8437,7 @@ func (ec *executionContext) _MarketHistory(ctx context.Context, sel ast.Selectio
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "TotalPrice":
+		case "TotalCost":
 
 			out.Values[i] = ec._MarketHistory_TotalPrice(ctx, field, obj)
 
@@ -8981,7 +8981,7 @@ func (ec *executionContext) _RecipePurchaseInfo(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "SingleCost":
+		case "PricePer":
 
 			out.Values[i] = ec._RecipePurchaseInfo_SingleCost(ctx, field, obj)
 
@@ -9086,7 +9086,7 @@ func (ec *executionContext) _ResaleInfo(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "SingleCost":
+		case "PricePer":
 
 			out.Values[i] = ec._ResaleInfo_SingleCost(ctx, field, obj)
 

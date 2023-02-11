@@ -16,8 +16,8 @@ COPY ./business ./business/
 COPY ./core ./core/
 COPY ./infrastructure ./infrastructure/
 
-RUN go build -o /sanctuary-docker
+RUN go build -o /marketmoogle-docker
 
 EXPOSE 8080
 
-CMD [ "/sanctuary-docker" ]
+CMD [ "/marketmoogle-docker" ]

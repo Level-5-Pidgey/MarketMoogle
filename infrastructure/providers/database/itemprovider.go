@@ -7,6 +7,7 @@
 package database
 
 import (
+	interfaces "MarketMoogleAPI/business/database"
 	schema "MarketMoogleAPI/core/graph/model"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,11 +17,11 @@ import (
 )
 
 type ItemDatabaseProvider struct {
-	db             *DatabaseClient
+	db             interfaces.MongoClient
 	collectionName string
 }
 
-func NewItemDataBaseProvider(dbClient *DatabaseClient) *ItemDatabaseProvider {
+func NewItemDataBaseProvider(dbClient interfaces.MongoClient) *ItemDatabaseProvider {
 	return &ItemDatabaseProvider{
 		db:             dbClient,
 		collectionName: "items",
@@ -84,7 +85,12 @@ func (itemProv ItemDatabaseProvider) FindItemByItemId(ctx context.Context, itemI
 }
 
 func (itemProv ItemDatabaseProvider) GetAllItems(ctx context.Context) ([]*schema.Item, error) {
-	collection := itemProv.db.client.Database(itemProv.db.databaseName).Collection(itemProv.collectionName)
+	collection, err := itemProv.db.GetCollection(itemProv.collectionName)
+
+	if err != nil {
+		return nil, err
+	}
+	
 	cursor, err := collection.Find(ctx, bson.M{})
 
 	defer func(cursor *mongo.Cursor, ctx context.Context) {

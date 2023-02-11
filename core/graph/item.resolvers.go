@@ -49,7 +49,7 @@ func (r *itemResolver) VendorFlipProfit(ctx context.Context, obj *schema.Item, d
 		Item:            obj,
 		ServerToBuyFrom: homeServer,
 		BuyFromVendor:   true,
-		SingleCost:      vendorPrice,
+		PricePer:        vendorPrice,
 		TotalCost:       vendorPrice,
 		Quantity:        1,
 	}

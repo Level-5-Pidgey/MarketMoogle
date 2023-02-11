@@ -31,9 +31,9 @@ type JobInput struct {
 type MarketEntry struct {
 	ServerID     int     `json:"ServerId"`
 	Server       string  `json:"Server"`
-	Quantity     int     `json:"Quantity"`
-	TotalPrice   int     `json:"TotalPrice"`
-	PricePer     int     `json:"PricePer"`
+	Quantity  int `json:"Quantity"`
+	TotalCost int `json:"TotalCost"`
+	PricePer  int `json:"PricePer"`
 	Hq           bool    `json:"Hq"`
 	IsCrafted    bool    `json:"IsCrafted"`
 	RetainerName *string `json:"RetainerName"`
@@ -43,7 +43,7 @@ type MarketHistory struct {
 	ServerID        int    `json:"ServerId"`
 	Server          string `json:"Server"`
 	Quantity        int    `json:"Quantity"`
-	TotalPrice      int    `json:"TotalPrice"`
+	TotalPrice      int    `json:"TotalCost"`
 	PricePer        int    `json:"PricePer"`
 	Hq              bool   `json:"Hq"`
 	TransactionTime string `json:"TransactionTime"`
@@ -65,9 +65,9 @@ type Recipe struct {
 type RecipePurchaseInfo struct {
 	Item            *Item  `json:"Item"`
 	ServerToBuyFrom string `json:"ServerToBuyFrom"`
-	BuyFromVendor   bool   `json:"BuyFromVendor"`
-	SingleCost      int    `json:"SingleCost"`
-	TotalCost       int    `json:"TotalCost"`
+	BuyFromVendor bool `json:"BuyFromVendor"`
+	PricePer      int  `json:"PricePer"`
+	TotalCost     int  `json:"TotalCost"`
 	Quantity        int    `json:"Quantity"`
 }
 
@@ -81,7 +81,7 @@ type ResaleInfo struct {
 	Profit          int                   `json:"Profit"`
 	ItemID          int                   `json:"ItemId"`
 	Quantity        int                   `json:"Quantity"`
-	SingleCost      int                   `json:"SingleCost"`
+	SingleCost      int                   `json:"PricePer"`
 	TotalCost       int                   `json:"TotalCost"`
 	ItemsToPurchase []*RecipePurchaseInfo `json:"ItemsToPurchase"`
 }

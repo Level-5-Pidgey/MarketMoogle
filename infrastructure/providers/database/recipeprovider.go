@@ -7,6 +7,7 @@
 package database
 
 import (
+	interfaces "MarketMoogleAPI/business/database"
 	schema "MarketMoogleAPI/core/graph/model"
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,11 +17,11 @@ import (
 )
 
 type RecipeDatabaseProvider struct {
-	db             *DatabaseClient
+	db             interfaces.MongoClient
 	collectionName string
 }
 
-func NewRecipeDatabaseProvider(dbClient *DatabaseClient) *RecipeDatabaseProvider {
+func NewRecipeDatabaseProvider(dbClient interfaces.MongoClient) *RecipeDatabaseProvider {
 	return &RecipeDatabaseProvider{
 		db:             dbClient,
 		collectionName: "recipes",
@@ -73,7 +74,12 @@ func (recipeProv RecipeDatabaseProvider) GetAllRecipes(ctx context.Context) ([]*
 }
 
 func (recipeProv RecipeDatabaseProvider) findRecipesBy(ctx context.Context, filter bson.M) ([]*schema.Recipe, error) {
-	collection := recipeProv.db.client.Database(recipeProv.db.databaseName).Collection(recipeProv.collectionName)
+	collection, err := recipeProv.db.GetCollection(recipeProv.collectionName)
+
+	if err != nil {
+		return nil, err
+	}
+	
 	cursor, err := collection.Find(ctx, filter)
 
 	defer func(cursor *mongo.Cursor, ctx context.Context) {

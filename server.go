@@ -36,7 +36,7 @@ func main() {
 		port = defaultPort
 	}
 
-	dbName := "sanctuary"
+	dbName := "marketmoogle"
 	var credentials options.Credential
 	if os.Getenv("MONGO_DBNAME") != "" {
 		dbName = os.Getenv("MONGO_DBNAME")
@@ -101,7 +101,7 @@ func main() {
 		"Zurvan",
 		"Bismarck",
 	}
-	
+
 	//Periodically ping for new market data.
 	go interval(mongoDbClient, servers, 75)
 
@@ -112,7 +112,7 @@ func main() {
 func interval(dbClient *database.DatabaseClient, servers []string, transCount int) {
 	index := 0
 	for range time.Tick(time.Minute * 4) {
-		if index > len(servers) {
+		if index >= len(servers) {
 			index = 0
 		}
 
@@ -134,7 +134,7 @@ func intervalMarketDataUpdate(dbClient *database.DatabaseClient, server string, 
 	recentTransactions, err := universalisApiProvider.GetRecentTransactions(server, transCount)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Print("ran into error getting market info, skipping item")
 		return err
 	}
 
@@ -196,7 +196,7 @@ func CreateDatabaseIndexes(client *database.DatabaseClient) {
 		ctx,
 		"items",
 		bson.M{"itemid": 1},
-		&options.IndexOptions{Name: util.StringPointer("itemid_index"), Unique: util.BoolPointer(true)},
+		&options.IndexOptions{Name: util.MakePointer[string]("itemid_index"), Unique: util.MakePointer[bool](true)},
 	)
 
 	if err != nil {
@@ -207,7 +207,7 @@ func CreateDatabaseIndexes(client *database.DatabaseClient) {
 		ctx,
 		"marketboard",
 		bson.D{{Key: "itemid", Value: 1}, {Key: "datacenter", Value: 1}},
-		&options.IndexOptions{Name: util.StringPointer("itemid_and_datacenter_index"), Unique: util.BoolPointer(true)},
+		&options.IndexOptions{Name: util.MakePointer[string]("itemid_and_datacenter_index"), Unique: util.MakePointer[bool](true)},
 	)
 
 	if err != nil {
@@ -218,7 +218,7 @@ func CreateDatabaseIndexes(client *database.DatabaseClient) {
 		ctx,
 		"recipes",
 		bson.M{"itemresultid": 1},
-		&options.IndexOptions{Name: util.StringPointer("itemresult_index"), Unique: util.BoolPointer(false)},
+		&options.IndexOptions{Name: util.MakePointer[string]("itemresult_index"), Unique: util.MakePointer[bool](false)},
 	)
 
 	if err != nil {
@@ -272,7 +272,7 @@ func GenerateMarketboardEntries(dbClient *database.DatabaseClient) {
 }
 
 func GenerateGameItems(dbClient *database.DatabaseClient) {
-	xivApiProv := api.XivApiProvider{}
+	xivApiProv := api.NewXivApiProvider()
 	itemProv := database.NewItemDataBaseProvider(dbClient)
 	recipeProv := database.NewRecipeDatabaseProvider(dbClient)
 
@@ -361,7 +361,7 @@ func classNameToEnum(classJob string) schema.CrafterType {
 }
 
 func GenerateLeveItems(dbClient *database.DatabaseClient) {
-	xivApiProvider := api.XivApiProvider{}
+	xivApiProvider := api.NewXivApiProvider()
 	itemProv := database.NewItemDataBaseProvider(dbClient)
 
 	allLeves, err := xivApiProvider.GetCraftLeves()
@@ -398,7 +398,7 @@ func GenerateLeveItems(dbClient *database.DatabaseClient) {
 }
 
 func GenerateVendorPrices(dbClient *database.DatabaseClient) {
-	xivApiProvider := api.XivApiProvider{}
+	xivApiProvider := api.NewXivApiProvider()
 	itemProv := database.NewItemDataBaseProvider(dbClient)
 
 	allShops, err := xivApiProvider.GetShops()
