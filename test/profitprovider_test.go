@@ -415,8 +415,8 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 				Profit:     4500,
 				ItemID:     1,
 				Quantity:   1,
-				SingleCost: 5000,
-				TotalCost:  5000,
+				SingleCost: 500,
+				TotalCost:  500,
 				ItemsToPurchase: []*schema.RecipePurchaseInfo{
 					{
 						Item: &schema.Item{

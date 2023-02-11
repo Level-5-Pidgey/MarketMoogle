@@ -279,7 +279,7 @@ func (profitProv ItemProfitProvider) GetCrossDcResaleProfit(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if marketEntry == nil {
 		return nil, errors.New("item searched for is not marketable")
 	}
@@ -305,66 +305,26 @@ func (profitProv ItemProfitProvider) GetCrossDcResaleProfit(ctx context.Context,
 }
 
 func (profitProv ItemProfitProvider) getHomeAndAwayItems(marketEntry *schema.MarketboardEntry, homeServer string) (*schema.MarketEntry, *schema.MarketEntry) {
-	cheapestOnDc := profitProv.GetCheapestOnDc(marketEntry)
 	homeEntry := &schema.MarketEntry{PricePer: profitProv.maxValue, TotalCost: profitProv.maxValue}
 	awayEntry := &schema.MarketEntry{PricePer: profitProv.maxValue, TotalCost: profitProv.maxValue}
 
-	//priceEntries := marketEntry.MarketEntries
-	//Sort by prices
-	//Bidirectional loop from top to bottom and vice versa
-	//Check if current price difference is
-	/*sort.Slice(marketEntry.MarketEntries, func(i, j int) bool {
-		return marketEntry.MarketEntries[i].PricePer < marketEntry.MarketEntries[j].PricePer
-	}
-	for _, entry := range marketEntry.MarketEntries {
-		if entry.PricePer < awayEntry.PricePer {
-			awayEntry = entry
-		}
-
-		if entry.Server == homeServer {
-			if homeEntry.PricePer > entry.PricePer {
-				homeEntry = entry
-			}
-		}
-	}
-
-	if cheapestOnDc.Server == homeServer {
-		for _, entry := range marketEntry.MarketEntries {
-			if entry.PricePer < awayEntry.PricePer {
-				awayEntry = entry
-			}
-
-			if entry.Server == homeServer {
-				if homeEntry.PricePer > entry.PricePer {
-					homeEntry = entry
-				}
-			}
-		}
-	}*/
-
-	//See if you can flip on their own server (buy the 2nd cheapest)
-	sameServerFlip := false
-	if cheapestOnDc.Server == homeServer {
-		for _, entry := range marketEntry.MarketEntries {
-			if entry == nil {
-				continue
-			}
-
-			if entry.Server == homeServer && cheapestOnDc.PricePer != entry.PricePer {
-				awayEntry = entry
-				sameServerFlip = true
-				break
-			}
-		}
-	} else {
-		awayEntry = cheapestOnDc
+	//If there are no market entries for this item, return early
+	if len(marketEntry.MarketEntries) == 0 {
+		return homeEntry, awayEntry
 	}
 
 	homeEntry = profitProv.GetCheapestOnServer(marketEntry, homeServer)
+	priceEntries := marketEntry.MarketEntries
+
+	for _, entry := range priceEntries {
+		if entry.PricePer < awayEntry.PricePer && entry.PricePer > homeEntry.PricePer {
+			awayEntry = entry
+		}
+	}
 
 	//If you're flipping on your own server, return values in opposite order
 	//(so higher priced item is the "home" to calculate profits properly)
-	if sameServerFlip {
+	if awayEntry.Server == homeServer {
 		return awayEntry, homeEntry
 	}
 
@@ -388,7 +348,7 @@ func (profitProv ItemProfitProvider) GetCheapestOnServer(entry *schema.Marketboa
 			continue
 		}
 
-		if result.PricePer > marketEntry.PricePer {
+		if marketEntry.PricePer < result.PricePer  {
 			result = marketEntry
 		}
 	}
