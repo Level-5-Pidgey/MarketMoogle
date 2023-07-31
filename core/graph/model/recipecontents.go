@@ -7,6 +7,6 @@
 package schema
 
 type RecipeContents struct {
-	ItemID int `json:"ItemID"`
+	ItemID int `json:"Id"`
 	Count  int `json:"Count"`
 }

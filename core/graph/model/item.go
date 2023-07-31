@@ -7,7 +7,7 @@
 package schema
 
 type Item struct {
-	ItemID             int           `json:"ItemID"`
+	Id                 int           `json:"Id"`
 	Name               string        `json:"Name"`
 	Description        *string       `json:"Description"`
 	CanBeHq            bool          `json:"CanBeHq"`

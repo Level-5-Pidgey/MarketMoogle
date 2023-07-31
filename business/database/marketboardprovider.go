@@ -17,6 +17,6 @@ type MarketBoardProvider interface {
 	ReplaceMarketEntry(ctx context.Context, itemId int, dataCenter string, newEntry *universalis.MarketQuery, currentTimestamp *string) error
 	FindMarketboardEntryByObjectId(ctx context.Context, objectId string) (*schema.MarketboardEntry, error)
 	FindMarketboardEntriesByItemId(ctx context.Context, itemId int) ([]*schema.MarketboardEntry, error)
-	FindItemEntryOnDc(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error)
+	FindItemEntryAcrossDataCenter(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error)
 	GetAllMarketboardEntries(ctx context.Context) ([]*schema.MarketboardEntry, error)
 }

@@ -300,7 +300,7 @@ func GenerateGameItems(dbClient *database.DatabaseClient) {
 		}
 
 		newItem := schema.Item{
-			ItemID:             gameItem.ID,
+			Id:                 gameItem.ID,
 			Name:               gameItem.Name,
 			Description:        &gameItem.Description,
 			CanBeHq:            gameItem.CanBeHq == 1,

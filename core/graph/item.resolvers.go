@@ -14,21 +14,21 @@ import (
 
 // Recipes is the resolver for the Recipes field.
 func (r *itemResolver) Recipes(ctx context.Context, obj *schema.Item) ([]*schema.Recipe, error) {
-	return r.recipeProv.FindRecipesByItemId(ctx, obj.ItemID)
+	return r.recipeProv.FindRecipesByItemId(ctx, obj.Id)
 }
 
 // MarketboardEntries is the resolver for the MarketboardEntries field.
 func (r *itemResolver) MarketboardEntries(ctx context.Context, obj *schema.Item) ([]*schema.MarketboardEntry, error) {
-	return r.mbProv.FindMarketboardEntriesByItemId(ctx, obj.ItemID)
+	return r.mbProv.FindMarketboardEntriesByItemId(ctx, obj.Id)
 }
 
 // LeveProfit is the resolver for the LeveProfit field.
-func (r *itemResolver) LeveProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string, buyFromOtherSevers *bool) (*schema.ResaleInfo, error) {
+func (r *itemResolver) LeveProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string, buyFromOtherSevers *bool) (*schema.ProfitInfo, error) {
 	panic("implement me")
 }
 
 // DcFlipProfit is the resolver for the DcFlipProfit field.
-func (r *itemResolver) DcFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ResaleInfo, error) {
+func (r *itemResolver) DcFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ProfitInfo, error) {
 	resaleProfit, err := r.profitProv.GetCrossDcResaleProfit(ctx, obj, dataCenter, homeServer)
 
 	if err != nil {
@@ -39,13 +39,13 @@ func (r *itemResolver) DcFlipProfit(ctx context.Context, obj *schema.Item, dataC
 }
 
 // VendorFlipProfit is the resolver for the VendorFlipProfit field.
-func (r *itemResolver) VendorFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ResaleInfo, error) {
+func (r *itemResolver) VendorFlipProfit(ctx context.Context, obj *schema.Item, dataCenter string, homeServer string) (*schema.ProfitInfo, error) {
 	vendorPrice := 0
 	if obj.BuyFromVendorValue != nil {
 		vendorPrice = *obj.BuyFromVendorValue
 	}
 
-	purchaseInfo := schema.RecipePurchaseInfo{
+	purchaseInfo := schema.ItemCostInfo{
 		Item:            obj,
 		ServerToBuyFrom: homeServer,
 		BuyFromVendor:   true,
@@ -61,19 +61,19 @@ func (r *itemResolver) VendorFlipProfit(ctx context.Context, obj *schema.Item, d
 		return nil, err
 	}
 
-	return &schema.ResaleInfo{
+	return &schema.ProfitInfo{
 		Profit:          resaleProfit,
-		ItemID:          obj.ItemID,
+		ItemID:          obj.Id,
 		Quantity:        1,
 		SingleCost:      resaleProfit,
 		TotalCost:       resaleProfit,
-		ItemsToPurchase: []*schema.RecipePurchaseInfo{&purchaseInfo},
+		ItemsToPurchase: []*schema.ItemCostInfo{&purchaseInfo},
 	}, nil
 }
 
 // RecipeProfit is the resolver for the RecipeProfit field.
-func (r *itemResolver) RecipeProfit(ctx context.Context, obj *schema.Item, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) (*schema.RecipeResaleInfo, error) {
-	recipeResaleInfo, err := r.profitProv.GetResaleInfoForItem(ctx, obj, dataCenter, homeServer, buyCrystals, buyFromOtherSevers)
+func (r *itemResolver) RecipeProfit(ctx context.Context, obj *schema.Item, buyFromOtherSevers *bool, buyCrystals *bool, dataCenter string, homeServer string) (*schema.RecipeProfitInfo, error) {
+	recipeResaleInfo, err := r.profitProv.GetRecipeProfitForItem(ctx, obj, dataCenter, homeServer, buyCrystals, buyFromOtherSevers)
 
 	if err != nil {
 		log.Fatal(err)

@@ -19,6 +19,10 @@ type TestMarketboardProvider struct {
 }
 
 func (mbProv TestMarketboardProvider) CreateMarketEntry(ctx context.Context, entryFromApi *schema.MarketboardEntry) (*schema.MarketboardEntry, error) {
+	if entryFromApi == nil {
+		return entryFromApi, nil
+	}
+	
 	mbProv.MbDatabase[entryFromApi.ItemID] = entryFromApi
 
 	return entryFromApi, nil
@@ -57,12 +61,12 @@ func (mbProv TestMarketboardProvider) FindMarketboardEntriesByItemId(ctx context
 	return nil, errors.New("unable to find market board entries for items")
 }
 
-func (mbProv TestMarketboardProvider) FindItemEntryOnDc(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error) {
+func (mbProv TestMarketboardProvider) FindItemEntryAcrossDataCenter(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error) {
 	if val, ok := mbProv.MbDatabase[itemId]; ok {
 		if val.DataCenter == dataCenter {
 			return val, nil
 		} else {
-			return nil, errors.New("unable to find entry on datacenter for given item")
+			return nil, nil
 		}
 	}
 

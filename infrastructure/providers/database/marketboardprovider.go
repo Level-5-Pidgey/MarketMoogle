@@ -94,13 +94,13 @@ func (mbProv MarketboardDatabaseProvider) FindMarketboardEntriesByItemId(ctx con
 	return mbProv.findMarketboardEntriesBy(ctx, bson.M{"itemid": itemId})
 }
 
-func (mbProv MarketboardDatabaseProvider) FindItemEntryOnDc(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error) {
+func (mbProv MarketboardDatabaseProvider) FindItemEntryAcrossDataCenter(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error) {
 	collection, err := mbProv.db.GetCollection(mbProv.collectionName)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	cursor, err := collection.Find(ctx, bson.M{"itemid": itemId, "datacenter": dataCenter})
 
 	marketEntry := schema.MarketboardEntry{}
@@ -131,7 +131,7 @@ func (mbProv MarketboardDatabaseProvider) findMarketboardEntriesBy(ctx context.C
 	if err != nil {
 		return nil, err
 	}
-	
+
 	cursor, err := collection.Find(ctx, filter)
 
 	var marketboardEntries []*schema.MarketboardEntry

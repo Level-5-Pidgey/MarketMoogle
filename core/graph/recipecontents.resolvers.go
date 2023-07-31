@@ -18,7 +18,7 @@ func (r *recipeContentsResolver) Item(ctx context.Context, obj *schema.RecipeCon
 	if item == nil {
 		dummyDesc := fmt.Sprintf("Item with ID %d could not be found.", obj.ItemID)
 		dummyItem := schema.Item{
-			ItemID:             0,
+			Id:                 0,
 			Name:               "Item not found",
 			Description:        &dummyDesc,
 			CanBeHq:            false,

@@ -62,7 +62,7 @@ type Recipe struct {
 	Durability             *int              `json:"Durability"`
 }
 
-type RecipePurchaseInfo struct {
+type ItemCostInfo struct {
 	Item            *Item  `json:"Item"`
 	ServerToBuyFrom string `json:"ServerToBuyFrom"`
 	BuyFromVendor bool `json:"BuyFromVendor"`
@@ -71,19 +71,19 @@ type RecipePurchaseInfo struct {
 	Quantity        int    `json:"Quantity"`
 }
 
-type RecipeResaleInfo struct {
-	ResaleInfo *ResaleInfo `json:"ResaleInfo"`
+type RecipeProfitInfo struct {
+	ResaleInfo *ProfitInfo `json:"ProfitInfo"`
 	CraftLevel int         `json:"CraftLevel"`
 	CraftType  CrafterType `json:"CraftType"`
 }
 
-type ResaleInfo struct {
+type ProfitInfo struct {
 	Profit          int                   `json:"Profit"`
 	ItemID          int                   `json:"ItemId"`
 	Quantity        int                   `json:"Quantity"`
 	SingleCost      int                   `json:"PricePer"`
-	TotalCost       int                   `json:"TotalCost"`
-	ItemsToPurchase []*RecipePurchaseInfo `json:"ItemsToPurchase"`
+	TotalCost       int             `json:"TotalCost"`
+	ItemsToPurchase []*ItemCostInfo `json:"ItemsToPurchase"`
 }
 
 type User struct {

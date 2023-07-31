@@ -17,7 +17,11 @@ type TestItemProvider struct {
 }
 
 func (itemProv TestItemProvider) InsertItem(ctx context.Context, input *schema.Item) (*schema.Item, error) {
-	itemProv.ItemDatabase[input.ItemID] = input
+	if input == nil {
+		return input, nil
+	}
+	
+	itemProv.ItemDatabase[input.Id] = input
 
 	return input, nil
 }

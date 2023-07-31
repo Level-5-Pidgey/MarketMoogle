@@ -16,6 +16,10 @@ type TestRecipeProvider struct {
 }
 
 func (recipeProv TestRecipeProvider) InsertRecipe(ctx context.Context, recipeToAdd *schema.Recipe) (*schema.Recipe, error) {
+	if recipeToAdd == nil {
+		return recipeToAdd, nil
+	}
+	
 	recipeProv.RecipeDatabase[recipeToAdd.ItemResultID] = recipeToAdd
 
 	return recipeToAdd, nil

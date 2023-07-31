@@ -24,6 +24,10 @@ type TestProviders struct {
 	itemProvider        interfaces.ItemProvider
 }
 
+const TestDataCenter string = "Test Data Center"
+const HomeServer string = "Home Server"
+const AwayServer string = "Foreign Server"
+
 func setupTestProviders() TestProviders {
 	recipeProv := mocks.TestRecipeProvider{
 		RecipeDatabase: make(map[int]*schema.Recipe),
@@ -42,6 +46,65 @@ func setupTestProviders() TestProviders {
 		marketboardProvider: mbProv,
 		itemProvider:        itemProv,
 	}
+}
+
+func recipeResaleObjectsAreTheSame(got *schema.RecipeProfitInfo, want *schema.RecipeProfitInfo) bool {
+	if want == nil || got == nil {
+		return true
+	}
+
+	//Since we're not creating the same pointer for object comparison we will have to compare elements individually
+	if got.CraftType != want.CraftType {
+		return false
+	}
+
+	if got.CraftLevel != want.CraftLevel {
+		return false
+	}
+
+	if (got.ResaleInfo == nil && want.ResaleInfo != nil) || (got.ResaleInfo != nil && want.ResaleInfo == nil) {
+		return false
+	}
+
+	if got.ResaleInfo != nil && want.ResaleInfo != nil {
+		return resaleInfoObjectsAreSame(got.ResaleInfo, want.ResaleInfo)
+	}
+
+	return true
+}
+
+func resaleInfoObjectsAreSame(got *schema.ProfitInfo, want *schema.ProfitInfo) bool {
+	if want == nil || got == nil {
+		return true
+	}
+
+	if got.ItemID != want.ItemID {
+		return false
+	}
+
+	if got.SingleCost != want.SingleCost {
+		return false
+	}
+
+	if got.TotalCost != want.TotalCost {
+		return false
+	}
+
+	if got.Quantity != want.Quantity {
+		return false
+	}
+
+	if got.Profit != want.Profit {
+		return false
+	}
+
+	for index := range want.ItemsToPurchase {
+		if !reflect.DeepEqual(*got.ItemsToPurchase[index], *want.ItemsToPurchase[index]) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func TestItemProfitProvider_GetCheapestOnDc(t *testing.T) {
@@ -110,8 +173,8 @@ func TestItemProfitProvider_GetCheapestOnDc(t *testing.T) {
 			//Other providers aren't necessary for this method
 			profitProv := providers.NewItemProfitProvider(nil, nil, nil)
 
-			if got := profitProv.GetCheapestOnDc(tt.entries); !reflect.DeepEqual(got.PricePer, tt.want) {
-				t.Errorf("GetCheapestOnDc() = %v, want %v", got, tt.want)
+			if got := profitProv.GetCheapestOnDataCenter(tt.entries); !reflect.DeepEqual(got.TotalCost, tt.want) {
+				t.Errorf("GetCheapestOnDataCenter() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -219,11 +282,11 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 		name          string
 		args          args
 		marketEntries []*schema.MarketboardEntry
-		want          *schema.ResaleInfo
+		want          *schema.ProfitInfo
 		wantErr       bool
 	}{
 		{
-			name: "Returns nil when no item presented",
+			name: "Returns nil when no items presented",
 			args: args{
 				obj:        nil,
 				homeServer: "",
@@ -233,11 +296,11 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 			wantErr:       false,
 		},
 		{
-			name: "Errors when item is not found",
+			name: "Errors when items is not found",
 			args: args{
 				obj: &schema.Item{
-					ItemID: 999,
-					Name:   "Non-existant item",
+					Id:     999,
+					Name:   "Non-existant items",
 					IconID: 999,
 				},
 				homeServer: "Non-existant land",
@@ -247,24 +310,24 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 			wantErr:       true,
 		},
 		{
-			name: "Returns error when item is not marketable",
+			name: "Returns error when items is not marketable",
 			args: args{
 				obj: &schema.Item{
-					ItemID: 1,
-					Name:   "Item with no market entries",
+					Id:   1,
+					Name: "Item with no market entries",
 				},
 				homeServer: "Marketless land",
 			},
 			marketEntries: nil,
-			want: nil,
-			wantErr: true,
+			want:          nil,
+			wantErr:       true,
 		},
 		{
 			name: "Returns 0 profit when no market entries exist",
 			args: args{
 				obj: &schema.Item{
-					ItemID: 1,
-					Name:   "Item with no market entries",
+					Id:   1,
+					Name: "Item with no market entries",
 				},
 				homeServer: "Marketless land",
 			},
@@ -272,23 +335,17 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 				{
 					ItemID:         1,
 					LastUpdateTime: util.GetCurrentTimestampString(),
-					MarketEntries: []*schema.MarketEntry{},
-					MarketHistory:       nil,
-					DataCenter:          "Test Data Center",
-					CurrentAveragePrice: 0,
-					CurrentMinPrice:     nil,
-					RegularSaleVelocity: 0,
-					HqSaleVelocity:      0,
-					NqSaleVelocity:      0,
+					MarketEntries:  []*schema.MarketEntry{},
+					DataCenter:     TestDataCenter,
 				},
 			},
-			want: &schema.ResaleInfo{
+			want: &schema.ProfitInfo{
 				Profit:          0,
 				ItemID:          1,
 				Quantity:        0,
 				SingleCost:      math.MaxInt32,
 				TotalCost:       math.MaxInt32,
-				ItemsToPurchase: []*schema.RecipePurchaseInfo{},
+				ItemsToPurchase: []*schema.ItemCostInfo{},
 			},
 			wantErr: false,
 		},
@@ -296,10 +353,10 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 			name: "Correctly calculates cross-server flips",
 			args: args{
 				obj: &schema.Item{
-					ItemID: 1,
-					Name:   "Flippable item",
+					Id:   1,
+					Name: "Flippable items",
 				},
-				homeServer: "Home Server",
+				homeServer: HomeServer,
 			},
 			marketEntries: []*schema.MarketboardEntry{
 				{
@@ -308,48 +365,42 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 					MarketEntries: []*schema.MarketEntry{
 						{
 							ServerID:  1,
-							Server:    "Home Server",
+							Server:    HomeServer,
 							Quantity:  1,
 							TotalCost: 5000,
 							PricePer:  5000,
 						},
 						{
 							ServerID:  1,
-							Server:    "Foreign Server",
+							Server:    AwayServer,
 							Quantity:  2,
 							TotalCost: 2000,
 							PricePer:  1000,
 						},
 						{
 							ServerID:  2,
-							Server:    "Foreign Server 2",
+							Server:    AwayServer + "2",
 							Quantity:  2,
 							TotalCost: 4000,
 							PricePer:  2000,
 						},
 					},
-					MarketHistory:       nil,
-					DataCenter:          "Test Data Center",
-					CurrentAveragePrice: 0,
-					CurrentMinPrice:     nil,
-					RegularSaleVelocity: 0,
-					HqSaleVelocity:      0,
-					NqSaleVelocity:      0,
+					DataCenter: TestDataCenter,
 				},
 			},
-			want: &schema.ResaleInfo{
+			want: &schema.ProfitInfo{
 				Profit:     8000,
 				ItemID:     1,
 				Quantity:   2,
 				SingleCost: 1000,
 				TotalCost:  2000,
-				ItemsToPurchase: []*schema.RecipePurchaseInfo{
+				ItemsToPurchase: []*schema.ItemCostInfo{
 					{
 						Item: &schema.Item{
-							ItemID: 1,
-							Name:   "Flippable item",
+							Id:   1,
+							Name: "Flippable items",
 						},
-						ServerToBuyFrom: "Foreign Server",
+						ServerToBuyFrom: AwayServer,
 						BuyFromVendor:   false,
 						PricePer:        1000,
 						TotalCost:       2000,
@@ -363,10 +414,10 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 			name: "Correctly calculates same-server flips",
 			args: args{
 				obj: &schema.Item{
-					ItemID: 1,
-					Name:   "Flippable item",
+					Id:   1,
+					Name: "Flippable items",
 				},
-				homeServer: "Home Server",
+				homeServer: HomeServer,
 			},
 			marketEntries: []*schema.MarketboardEntry{
 				{
@@ -375,55 +426,49 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 					MarketEntries: []*schema.MarketEntry{
 						{
 							ServerID:  1,
-							Server:    "Home Server",
+							Server:    HomeServer,
 							Quantity:  1,
 							TotalCost: 500,
 							PricePer:  500,
 						},
 						{
 							ServerID:  1,
-							Server:    "Home Server",
+							Server:    HomeServer,
 							Quantity:  1,
 							TotalCost: 5000,
 							PricePer:  5000,
 						},
 						{
 							ServerID:  1,
-							Server:    "Home Server",
+							Server:    HomeServer,
 							Quantity:  1,
 							TotalCost: 6000,
 							PricePer:  6000,
 						},
 						{
 							ServerID:  2,
-							Server:    "Foreign Server",
+							Server:    AwayServer,
 							Quantity:  2,
 							TotalCost: 980,
 							PricePer:  490,
 						},
 					},
-					MarketHistory:       nil,
-					DataCenter:          "Test Data Center",
-					CurrentAveragePrice: 0,
-					CurrentMinPrice:     nil,
-					RegularSaleVelocity: 0,
-					HqSaleVelocity:      0,
-					NqSaleVelocity:      0,
+					DataCenter: TestDataCenter,
 				},
 			},
-			want: &schema.ResaleInfo{
+			want: &schema.ProfitInfo{
 				Profit:     4500,
 				ItemID:     1,
 				Quantity:   1,
 				SingleCost: 500,
 				TotalCost:  500,
-				ItemsToPurchase: []*schema.RecipePurchaseInfo{
+				ItemsToPurchase: []*schema.ItemCostInfo{
 					{
 						Item: &schema.Item{
-							ItemID: 1,
-							Name:   "Flippable item",
+							Id:   1,
+							Name: "Flippable items",
 						},
-						ServerToBuyFrom: "Home Server",
+						ServerToBuyFrom: HomeServer,
 						BuyFromVendor:   false,
 						PricePer:        500,
 						TotalCost:       500,
@@ -455,7 +500,7 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 				}
 			}
 
-			got, err := profitProv.GetCrossDcResaleProfit(ctx, tt.args.obj, "Test Data Center", tt.args.homeServer)
+			got, err := profitProv.GetCrossDcResaleProfit(ctx, tt.args.obj, TestDataCenter, tt.args.homeServer)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetCrossDcResaleProfit() error = %v, wantErr %v", err, tt.wantErr)
@@ -469,94 +514,213 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 	}
 }
 
-func resaleInfoObjectsAreSame(got *schema.ResaleInfo, want *schema.ResaleInfo) bool {
-	if want == nil || got == nil {
-		return true
-	}
-
-	//Since we're not creating the same pointer for object comparison we will have to compare elements individually
-	sameProperties := true
-	if got.ItemID != want.ItemID {
-		sameProperties = false
-	}
-
-	if got.SingleCost != want.SingleCost {
-		sameProperties = false
-	}
-
-	if got.TotalCost != want.TotalCost {
-		sameProperties = false
-	}
-
-	if got.Quantity != want.Quantity {
-		sameProperties = false
-	}
-
-	if got.Profit != want.Profit {
-		sameProperties = false
-	}
-
-	for index := range want.ItemsToPurchase {
-		if !reflect.DeepEqual(*got.ItemsToPurchase[index], *want.ItemsToPurchase[index]) {
-			sameProperties = false
-			break
-		}
-	}
-
-	return sameProperties
-}
-
-/*
 func TestItemProfitProvider_GetRecipePurchaseInfo(t *testing.T) {
-	type fields struct {
-		maxValue            int
-		returnUnlisted      bool
-		recipeProvider      database.RecipeProvider
-		marketboardProvider database.MarketBoardProvider
-		itemProvider        database.ItemProvider
-	}
 	type args struct {
-		componentItem       *schema.Item
+		item                *schema.Item
 		mbEntry             *schema.MarketboardEntry
 		homeServer          string
 		buyFromOtherServers *bool
 		count               int
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   *schema.RecipePurchaseInfo
+		name string
+		args args
+		want *schema.ItemCostInfo
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Always buys from vendor if possible",
+			args: args{
+				item: &schema.Item{
+					Id:                 1,
+					Name:               "Test Item",
+					SellToVendorValue:  util.MakePointer[int](50),
+					BuyFromVendorValue: util.MakePointer[int](500),
+				},
+				mbEntry: &schema.MarketboardEntry{
+					ItemID:         1,
+					LastUpdateTime: util.GetCurrentTimestampString(),
+					MarketEntries: []*schema.MarketEntry{
+						{
+							ServerID:  1,
+							Server:    HomeServer,
+							Quantity:  1,
+							TotalCost: 400,
+							PricePer:  400,
+						},
+					},
+					DataCenter: TestDataCenter,
+				},
+				homeServer:          HomeServer,
+				buyFromOtherServers: nil,
+				count:               1,
+			},
+			want: &schema.ItemCostInfo{
+				Item: &schema.Item{
+					Id:                 1,
+					Name:               "Test Item",
+					SellToVendorValue:  util.MakePointer[int](50),
+					BuyFromVendorValue: util.MakePointer[int](500),
+				},
+				ServerToBuyFrom: HomeServer,
+				BuyFromVendor:   true,
+				PricePer:        500,
+				TotalCost:       500,
+				Quantity:        1,
+			},
+		},
+		{
+			name: "Buys from cheapest server on the DC",
+			args: args{
+				item: &schema.Item{
+					Id:   1,
+					Name: "Test Item",
+				},
+				mbEntry: &schema.MarketboardEntry{
+					ItemID:         1,
+					LastUpdateTime: util.GetCurrentTimestampString(),
+					MarketEntries: []*schema.MarketEntry{
+						{
+							ServerID:  2,
+							Server:    AwayServer,
+							Quantity:  1,
+							TotalCost: 400,
+							PricePer:  400,
+						},
+						{
+							ServerID:  2,
+							Server:    AwayServer,
+							Quantity:  2,
+							TotalCost: 600,
+							PricePer:  300,
+						},
+						{
+							ServerID:  2,
+							Server:    AwayServer,
+							Quantity:  1,
+							TotalCost: 450,
+							PricePer:  450,
+						},
+						{
+							ServerID:  1,
+							Server:    HomeServer,
+							Quantity:  2,
+							TotalCost: 10000,
+							PricePer:  5000,
+						},
+					},
+					DataCenter: TestDataCenter,
+				},
+				homeServer:          HomeServer,
+				buyFromOtherServers: util.MakePointer[bool](true),
+				count:               1,
+			},
+			want: &schema.ItemCostInfo{
+				Item: &schema.Item{
+					Id:   1,
+					Name: "Test Item",
+				},
+				ServerToBuyFrom: AwayServer,
+				BuyFromVendor:   false,
+				PricePer:        400,
+				TotalCost:       400,
+				Quantity:        1,
+			},
+		},
+		{
+			name: "Buys from cheapest at home if option toggled",
+			args: args{
+				item: &schema.Item{
+					Id:   1,
+					Name: "Test Item",
+				},
+				mbEntry: &schema.MarketboardEntry{
+					ItemID:         1,
+					LastUpdateTime: util.GetCurrentTimestampString(),
+					MarketEntries: []*schema.MarketEntry{
+						{
+							ServerID:  1,
+							Server:    HomeServer,
+							Quantity:  1,
+							TotalCost: 400,
+							PricePer:  400,
+						},
+						{
+							ServerID:  1,
+							Server:    HomeServer,
+							Quantity:  2,
+							TotalCost: 700,
+							PricePer:  350,
+						},
+						{
+							ServerID:  2,
+							Server:    AwayServer,
+							Quantity:  3,
+							TotalCost: 900,
+							PricePer:  300,
+						},
+						{
+							ServerID:  2,
+							Server:    AwayServer,
+							Quantity:  1,
+							TotalCost: 300,
+							PricePer:  300,
+						},
+					},
+					DataCenter: TestDataCenter,
+				},
+				homeServer:          HomeServer,
+				buyFromOtherServers: util.MakePointer[bool](false),
+				count:               1,
+			},
+			want: &schema.ItemCostInfo{
+				Item: &schema.Item{
+					Id:   1,
+					Name: "Test Item",
+				},
+				ServerToBuyFrom: HomeServer,
+				BuyFromVendor:   false,
+				PricePer:        400,
+				TotalCost:       400,
+				Quantity:        1,
+			},
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			profitProv := providers.ItemProfitProvider{
-				maxValue:            tt.fields.maxValue,
-				returnUnlisted:      tt.fields.returnUnlisted,
-				recipeProvider:      tt.fields.recipeProvider,
-				marketboardProvider: tt.fields.marketboardProvider,
-				itemProvider:        tt.fields.itemProvider,
+			ctx := context.Background()
+
+			testProviders := setupTestProviders()
+
+			profitProv := providers.NewItemProfitProvider(
+				testProviders.recipeProvider,
+				testProviders.marketboardProvider,
+				testProviders.itemProvider)
+
+			//Add market entries to provider for test
+			_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, tt.args.mbEntry)
+			if err != nil {
+				t.Errorf("error adding market entries to test provider")
 			}
-			if got := profitProv.GetRecipePurchaseInfo(tt.args.componentItem, tt.args.mbEntry, tt.args.homeServer, tt.args.buyFromOtherServers, tt.args.count); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetRecipePurchaseInfo() = %v, want %v", got, tt.want)
+
+			//Add basic items to items provider
+			_, err = testProviders.itemProvider.InsertItem(ctx, tt.args.item)
+			if err != nil {
+				t.Errorf("error adding test items to provider")
+			}
+
+			if got := profitProv.GetComponentCostInfo(tt.args.item, tt.args.mbEntry, tt.args.homeServer, tt.args.buyFromOtherServers, tt.args.count); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetComponentCostInfo() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestItemProfitProvider_GetResaleInfoForItem(t *testing.T) {
-	type fields struct {
-		maxValue            int
-		returnUnlisted      bool
-		recipeProvider      database.RecipeProvider
-		marketboardProvider database.MarketBoardProvider
-		itemProvider        database.ItemProvider
-	}
+func TestItemProfitProvider_GetRecipeProfitForItem(t *testing.T) {
 	type args struct {
-		ctx                 context.Context
-		obj                 *schema.Item
+		items               []*schema.Item
+		marketboardEntries  []*schema.MarketboardEntry
+		recipe              *schema.Recipe
 		dataCenter          string
 		homeServer          string
 		buyCrystals         *bool
@@ -564,67 +728,397 @@ func TestItemProfitProvider_GetResaleInfoForItem(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
-		want    *schema.RecipeResaleInfo
+		want    *schema.RecipeProfitInfo
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Returns early if items doesn't exist",
+			args: args{
+				items: []*schema.Item{},
+			},
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name: "Returns early if items has no recipe",
+			args: args{
+				items: []*schema.Item{
+					{
+						Id:   1,
+						Name: "Recipe-less items",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name: "Correctly identifies cost of recipe",
+			args: args{
+				items: []*schema.Item{
+					{
+						Id:   20,
+						Name: "Tasty Cake",
+					},
+					{
+						Id:   21,
+						Name: "Cake Mix",
+					},
+					{
+						Id:   22,
+						Name: "Eggs",
+					},
+				},
+				marketboardEntries: []*schema.MarketboardEntry{
+					{
+						ItemID:         20,
+						LastUpdateTime: util.GetCurrentTimestampString(),
+						MarketEntries: []*schema.MarketEntry{
+							{
+								ServerID:  1,
+								Server:    HomeServer,
+								Quantity:  2,
+								TotalCost: 1000,
+								PricePer:  500,
+							},
+						},
+						DataCenter:          TestDataCenter,
+						CurrentAveragePrice: 500,
+					},
+					{
+						ItemID:         21,
+						LastUpdateTime: util.GetCurrentTimestampString(),
+						MarketEntries: []*schema.MarketEntry{
+							{
+								ServerID:  2,
+								Server:    AwayServer,
+								Quantity:  1,
+								TotalCost: 250,
+								PricePer:  250,
+							},
+						},
+						DataCenter:          TestDataCenter,
+						CurrentAveragePrice: 250,
+					},
+					{
+						ItemID:         22,
+						LastUpdateTime: util.GetCurrentTimestampString(),
+						MarketEntries: []*schema.MarketEntry{
+							{
+								ServerID:  1,
+								Server:    HomeServer,
+								Quantity:  4,
+								TotalCost: 400,
+								PricePer:  100,
+							},
+						},
+						DataCenter:          TestDataCenter,
+						CurrentAveragePrice: 100,
+					},
+				},
+				recipe: &schema.Recipe{
+					RecipeID:       1,
+					ItemResultID:   20,
+					ResultQuantity: 1,
+					CraftedBy:      schema.CrafterTypeCulinarian,
+					RecipeLevel:    util.MakePointer[int](50),
+					RecipeItems: []*schema.RecipeContents{
+						{
+							ItemID: 21,
+							Count:  1,
+						},
+						{
+							ItemID: 22,
+							Count:  2,
+						},
+					},
+				},
+				dataCenter:          TestDataCenter,
+				homeServer:          HomeServer,
+				buyCrystals:         nil,
+				buyFromOtherServers: nil,
+			},
+			want: &schema.RecipeProfitInfo{
+				ResaleInfo: &schema.ProfitInfo{
+					Profit:     50,
+					ItemID:     20,
+					Quantity:   1,
+					SingleCost: 450,
+					TotalCost:  450,
+					ItemsToPurchase: []*schema.ItemCostInfo{
+						{
+							Item: &schema.Item{
+								Id:   21,
+								Name: "Cake Mix",
+							},
+							ServerToBuyFrom: AwayServer,
+							BuyFromVendor:   false,
+							PricePer:        250,
+							TotalCost:       250,
+							Quantity:        1,
+						},
+						{
+							Item: &schema.Item{
+								Id:   22,
+								Name: "Eggs",
+							},
+							ServerToBuyFrom: HomeServer,
+							BuyFromVendor:   false,
+							PricePer:        100,
+							TotalCost:       400,
+							Quantity:        4,
+						},
+					},
+				},
+				CraftLevel: 50,
+				CraftType:  schema.CrafterTypeCulinarian,
+			},
+			wantErr: false,
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			profitProv := providers.ItemProfitProvider{
-				maxValue:            tt.fields.maxValue,
-				returnUnlisted:      tt.fields.returnUnlisted,
-				recipeProvider:      tt.fields.recipeProvider,
-				marketboardProvider: tt.fields.marketboardProvider,
-				itemProvider:        tt.fields.itemProvider,
+			ctx := context.Background()
+
+			testProviders := setupTestProviders()
+
+			profitProv := providers.NewItemProfitProvider(
+				testProviders.recipeProvider,
+				testProviders.marketboardProvider,
+				testProviders.itemProvider)
+
+			//Add market entries to provider for test
+			for _, mbEntry := range tt.args.marketboardEntries {
+				_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, mbEntry)
+
+				if err != nil {
+					t.Errorf("error adding market entries to test provider")
+				}
 			}
-			got, err := profitProv.GetResaleInfoForItem(tt.args.ctx, tt.args.obj, tt.args.dataCenter, tt.args.homeServer, tt.args.buyCrystals, tt.args.buyFromOtherServers)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetResaleInfoForItem() error = %v, wantErr %v", err, tt.wantErr)
+
+			//Add items to provider
+			for _, item := range tt.args.items {
+				_, err := testProviders.itemProvider.InsertItem(ctx, item)
+
+				if err != nil {
+					t.Errorf("error adding test items to provider")
+				}
+			}
+
+			//Add items recipe to recipe provider
+			_, err := testProviders.recipeProvider.InsertRecipe(ctx, tt.args.recipe)
+			if err != nil {
+				t.Errorf("error adding test recipe to provider")
+			}
+
+			//Return early if there's no items
+			if len(tt.args.items) == 0 {
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetResaleInfoForItem() got = %v, want %v", got, tt.want)
+
+			got, err := profitProv.GetRecipeProfitForItem(ctx, tt.args.items[0], tt.args.dataCenter, tt.args.homeServer, tt.args.buyCrystals, tt.args.buyFromOtherServers)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetRecipeProfitForItem() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !recipeResaleObjectsAreTheSame(got, tt.want) {
+				t.Errorf("GetRecipeProfitForItem() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func TestItemProfitProvider_GetVendorFlipProfit(t *testing.T) {
-	type fields struct {
-		maxValue            int
-		returnUnlisted      bool
-		recipeProvider      database.RecipeProvider
-		marketboardProvider database.MarketBoardProvider
-		itemProvider        database.ItemProvider
-	}
 	type args struct {
-		ctx        context.Context
-		obj        *schema.Item
-		dataCenter string
-		homeServer string
+		marketboardEntries []*schema.MarketboardEntry
+		obj                *schema.Item
+		dataCenter         string
+		homeServer         string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    int
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Returns 0 profit if there's no object provided",
+			args: args{
+				marketboardEntries: []*schema.MarketboardEntry{
+					{
+						ItemID:         1,
+						LastUpdateTime: util.GetCurrentTimestampString(),
+						MarketEntries: []*schema.MarketEntry{
+							{
+								ServerID:  1,
+								Server:    HomeServer,
+								Quantity:  1,
+								TotalCost: 5000,
+								PricePer:  5000,
+							},
+						},
+						DataCenter: TestDataCenter,
+					},
+				},
+				obj:        nil,
+				dataCenter: TestDataCenter,
+				homeServer: HomeServer,
+			},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name: "Errors if there's no marketboard entries found for the object",
+			args: args{
+				marketboardEntries: []*schema.MarketboardEntry{
+					{
+						ItemID:         2,
+						LastUpdateTime: util.GetCurrentTimestampString(),
+						MarketEntries: []*schema.MarketEntry{
+							{
+								ServerID:  1,
+								Server:    HomeServer,
+								Quantity:  1,
+								TotalCost: 5000,
+								PricePer:  5000,
+							},
+						},
+						DataCenter: TestDataCenter,
+					},
+				},
+				obj: &schema.Item{
+					Id:                 2,
+					Name:               "Unmarketable Item",
+					BuyFromVendorValue: util.MakePointer(5000),
+				},
+				dataCenter: TestDataCenter,
+				homeServer: HomeServer,
+			},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name: "Returns 0 if the object can't be bought from a vendor",
+			args: args{
+				marketboardEntries: []*schema.MarketboardEntry{
+					{
+						ItemID:         2,
+						LastUpdateTime: util.GetCurrentTimestampString(),
+						MarketEntries: []*schema.MarketEntry{
+							{
+								ServerID:  1,
+								Server:    HomeServer,
+								Quantity:  1,
+								TotalCost: 5000,
+								PricePer:  5000,
+							},
+						},
+						DataCenter: TestDataCenter,
+					},
+				},
+				obj: &schema.Item{
+					Id:                 1,
+					Name:               "Unmarketable Item",
+					BuyFromVendorValue: nil,
+				},
+				dataCenter: TestDataCenter,
+				homeServer: HomeServer,
+			},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name: "Correctly identifies profit for items that can be bought from a vendor and are sold on the home server",
+			args: args{
+				marketboardEntries: []*schema.MarketboardEntry{
+					{
+						ItemID:         1,
+						LastUpdateTime: util.GetCurrentTimestampString(),
+						MarketEntries: []*schema.MarketEntry{
+							{
+								ServerID:  1,
+								Server:    HomeServer,
+								Quantity:  1,
+								TotalCost: 5000,
+								PricePer:  5000,
+							},
+						},
+						DataCenter: TestDataCenter,
+					},
+				},
+				obj: &schema.Item{
+					Id:                 1,
+					Name:               "Marketable Item",
+					BuyFromVendorValue: util.MakePointer(3000),
+				},
+				dataCenter: TestDataCenter,
+				homeServer: HomeServer,
+			},
+			want:    2000,
+			wantErr: false,
+		},
+		{
+			name: "Reports 0 profit if there are no home server market entries",
+			args: args{
+				marketboardEntries: []*schema.MarketboardEntry{
+					{
+						ItemID:         1,
+						LastUpdateTime: util.GetCurrentTimestampString(),
+						MarketEntries: []*schema.MarketEntry{
+							{
+								ServerID:  1,
+								Server:    AwayServer,
+								Quantity:  1,
+								TotalCost: 5000,
+								PricePer:  5000,
+							},
+						},
+						DataCenter: TestDataCenter,
+					},
+				},
+				obj: &schema.Item{
+					Id:                 1,
+					Name:               "Marketable Item",
+					BuyFromVendorValue: util.MakePointer(3000),
+				},
+				dataCenter: TestDataCenter,
+				homeServer: HomeServer,
+			},
+			want:    0,
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			profitProv := providers.ItemProfitProvider{
-				maxValue:            tt.fields.maxValue,
-				returnUnlisted:      tt.fields.returnUnlisted,
-				recipeProvider:      tt.fields.recipeProvider,
-				marketboardProvider: tt.fields.marketboardProvider,
-				itemProvider:        tt.fields.itemProvider,
+			ctx := context.Background()
+
+			testProviders := setupTestProviders()
+
+			profitProv := providers.NewItemProfitProvider(
+				testProviders.recipeProvider,
+				testProviders.marketboardProvider,
+				testProviders.itemProvider)
+
+			//Add market entries to provider for test
+			for _, mbEntry := range tt.args.marketboardEntries {
+				_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, mbEntry)
+
+				if err != nil {
+					t.Errorf("error adding market entries to test provider")
+				}
 			}
-			got, err := profitProv.GetVendorFlipProfit(tt.args.ctx, tt.args.obj, tt.args.dataCenter, tt.args.homeServer)
+
+			//Add obj to provider
+			_, err := testProviders.itemProvider.InsertItem(ctx, tt.args.obj)
+
+			if err != nil {
+				t.Errorf("error adding test items to provider")
+			}
+
+			got, err := profitProv.GetVendorFlipProfit(ctx, tt.args.obj, tt.args.dataCenter, tt.args.homeServer)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetVendorFlipProfit() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -635,127 +1129,3 @@ func TestItemProfitProvider_GetVendorFlipProfit(t *testing.T) {
 		})
 	}
 }
-
-func TestItemProfitProvider_getHomeAndAwayItems(t *testing.T) {
-	type fields struct {
-		maxValue            int
-		returnUnlisted      bool
-		recipeProvider      database.RecipeProvider
-		marketboardProvider database.MarketBoardProvider
-		itemProvider        database.ItemProvider
-	}
-	type args struct {
-		marketEntry *schema.MarketboardEntry
-		homeServer  string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   *schema.MarketEntry
-		want1  *schema.MarketEntry
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			profitProv := providers.ItemProfitProvider{
-				maxValue:            tt.fields.maxValue,
-				returnUnlisted:      tt.fields.returnUnlisted,
-				recipeProvider:      tt.fields.recipeProvider,
-				marketboardProvider: tt.fields.marketboardProvider,
-				itemProvider:        tt.fields.itemProvider,
-			}
-			got, got1 := profitProv.getHomeAndAwayItems(tt.args.marketEntry, tt.args.homeServer)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getHomeAndAwayItems() got = %v, want %v", got, tt.want)
-			}
-			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("getHomeAndAwayItems() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
-func TestItemProfitProvider_getItemValue(t *testing.T) {
-	type fields struct {
-		maxValue            int
-		returnUnlisted      bool
-		recipeProvider      database.RecipeProvider
-		marketboardProvider database.MarketBoardProvider
-		itemProvider        database.ItemProvider
-	}
-	type args struct {
-		marketEntries *schema.MarketboardEntry
-		server        string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   int
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			profitProv := providers.ItemProfitProvider{
-				maxValue:            tt.fields.maxValue,
-				returnUnlisted:      tt.fields.returnUnlisted,
-				recipeProvider:      tt.fields.recipeProvider,
-				marketboardProvider: tt.fields.marketboardProvider,
-				itemProvider:        tt.fields.itemProvider,
-			}
-			if got := profitProv.getItemValue(tt.args.marketEntries, tt.args.server); got != tt.want {
-				t.Errorf("getItemValue() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestItemProfitProvider_getRecipeResaleInfo(t *testing.T) {
-	type fields struct {
-		maxValue            int
-		returnUnlisted      bool
-		recipeProvider      database.RecipeProvider
-		marketboardProvider database.MarketBoardProvider
-		itemProvider        database.ItemProvider
-	}
-	type args struct {
-		ctx                 context.Context
-		recipe              *schema.Recipe
-		buyCrystals         *bool
-		buyFromOtherServers *bool
-		homeServer          string
-		dataCenter          string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *schema.ResaleInfo
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			profitProv := providers.ItemProfitProvider{
-				maxValue:            tt.fields.maxValue,
-				returnUnlisted:      tt.fields.returnUnlisted,
-				recipeProvider:      tt.fields.recipeProvider,
-				marketboardProvider: tt.fields.marketboardProvider,
-				itemProvider:        tt.fields.itemProvider,
-			}
-			got, err := profitProv.getRecipeResaleInfo(tt.args.ctx, tt.args.recipe, tt.args.buyCrystals, tt.args.buyFromOtherServers, tt.args.homeServer, tt.args.dataCenter)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getRecipeResaleInfo() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getRecipeResaleInfo() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-*/
