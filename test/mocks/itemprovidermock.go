@@ -7,7 +7,7 @@
 package mocks
 
 import (
-	schema "MarketMoogleAPI/core/graph/model"
+	schema "MarketMoogle/core/graph/model"
 	"context"
 	"errors"
 )
@@ -20,7 +20,7 @@ func (itemProv TestItemProvider) InsertItem(ctx context.Context, input *schema.I
 	if input == nil {
 		return input, nil
 	}
-	
+
 	itemProv.ItemDatabase[input.Id] = input
 
 	return input, nil

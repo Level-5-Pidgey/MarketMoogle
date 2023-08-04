@@ -7,7 +7,7 @@
 package api
 
 import (
-	"MarketMoogleAPI/core/apitypes/universalis"
+	"MarketMoogle/core/apitypes/universalis"
 	"fmt"
 )
 

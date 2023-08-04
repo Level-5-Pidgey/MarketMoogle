@@ -7,8 +7,8 @@
 package database
 
 import (
-	interfaces "MarketMoogleAPI/business/database"
-	schema "MarketMoogleAPI/core/graph/model"
+	interfaces "MarketMoogle/business/database"
+	schema "MarketMoogle/core/graph/model"
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -79,7 +79,7 @@ func (recipeProv RecipeDatabaseProvider) findRecipesBy(ctx context.Context, filt
 	if err != nil {
 		return nil, err
 	}
-	
+
 	cursor, err := collection.Find(ctx, filter)
 
 	defer func(cursor *mongo.Cursor, ctx context.Context) {

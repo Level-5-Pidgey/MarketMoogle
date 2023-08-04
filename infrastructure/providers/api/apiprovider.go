@@ -7,7 +7,7 @@
 package api
 
 import (
-	"MarketMoogleAPI/core/apitypes/xivapi"
+	"MarketMoogle/core/apitypes/xivapi"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,7 +22,7 @@ func MakePaginatedRequest(contentType string, page int, apiKey string) (*xivapi.
 	if apiKey != "" {
 		queryOptions = fmt.Sprintf("%s&page=%d", apiKey, page)
 	}
-	
+
 	url := fmt.Sprintf("https://xivapi.com/%s%s", contentType, queryOptions)
 
 	return MakeApiRequest[xivapi.PaginatedContent](url)
@@ -40,7 +40,7 @@ func MakeApiRequest[T any](urlString string) (*T, error) {
 		log.Fatal(requestError)
 		return nil, requestError
 	}
-	
+
 	//API has a DNS problem or is offline, cancel unmarshalling
 	if resp.StatusCode == 522 {
 		return nil, errors.New("522 code returned from api request")

@@ -4,10 +4,10 @@ package graph
 // will be copied through when generating and any unknown code will be moved to the end.
 
 import (
-	generated "MarketMoogleAPI/core/graph/gen"
-	schema "MarketMoogleAPI/core/graph/model"
-	"MarketMoogleAPI/infrastructure/providers"
-	"MarketMoogleAPI/infrastructure/providers/database"
+	generated "MarketMoogle/core/graph/gen"
+	schema "MarketMoogle/core/graph/model"
+	"MarketMoogle/infrastructure/providers"
+	"MarketMoogle/infrastructure/providers/database"
 	"context"
 	"log"
 )

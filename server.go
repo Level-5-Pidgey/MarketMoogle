@@ -7,12 +7,12 @@
 package main
 
 import (
-	internalGraph "MarketMoogleAPI/core/graph"
-	internalGen "MarketMoogleAPI/core/graph/gen"
-	schema "MarketMoogleAPI/core/graph/model"
-	"MarketMoogleAPI/core/util"
-	"MarketMoogleAPI/infrastructure/providers/api"
-	"MarketMoogleAPI/infrastructure/providers/database"
+	internalGraph "MarketMoogle/core/graph"
+	internalGen "MarketMoogle/core/graph/gen"
+	schema "MarketMoogle/core/graph/model"
+	"MarketMoogle/core/util"
+	"MarketMoogle/infrastructure/providers/api"
+	"MarketMoogle/infrastructure/providers/database"
 	"context"
 	"fmt"
 	"github.com/99designs/gqlgen/graphql/handler"

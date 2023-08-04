@@ -7,7 +7,7 @@
 package api
 
 import (
-	"MarketMoogleAPI/core/apitypes/xivapi"
+	"MarketMoogle/core/apitypes/xivapi"
 )
 
 type XivApiProvider interface {

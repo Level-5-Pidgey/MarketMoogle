@@ -6,7 +6,7 @@
 
 package api
 
-import "MarketMoogleAPI/core/apitypes/universalis"
+import "MarketMoogle/core/apitypes/universalis"
 
 type UniversalisApiProvider interface {
 	GetMarketInfoForDc(dataCenter *string, itemId *int) (*universalis.MarketQuery, error)

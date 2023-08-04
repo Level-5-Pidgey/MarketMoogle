@@ -7,8 +7,8 @@
 package database
 
 import (
-	"MarketMoogleAPI/core/apitypes/universalis"
-	schema "MarketMoogleAPI/core/graph/model"
+	"MarketMoogle/core/apitypes/universalis"
+	schema "MarketMoogle/core/graph/model"
 	"context"
 )
 

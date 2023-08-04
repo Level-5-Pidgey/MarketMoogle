@@ -3,7 +3,7 @@
 package generated
 
 import (
-	schema "MarketMoogleAPI/core/graph/model"
+	schema "MarketMoogle/core/graph/model"
 	"bytes"
 	"context"
 	"errors"

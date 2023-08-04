@@ -7,8 +7,8 @@
 package database
 
 import (
-	interfaces "MarketMoogleAPI/business/database"
-	schema "MarketMoogleAPI/core/graph/model"
+	interfaces "MarketMoogle/business/database"
+	schema "MarketMoogle/core/graph/model"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -90,7 +90,7 @@ func (itemProv ItemDatabaseProvider) GetAllItems(ctx context.Context) ([]*schema
 	if err != nil {
 		return nil, err
 	}
-	
+
 	cursor, err := collection.Find(ctx, bson.M{})
 
 	defer func(cursor *mongo.Cursor, ctx context.Context) {

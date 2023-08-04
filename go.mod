@@ -1,4 +1,4 @@
-module MarketMoogleAPI
+module MarketMoogle
 
 go 1.18
 

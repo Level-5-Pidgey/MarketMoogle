@@ -7,11 +7,11 @@
 package test
 
 import (
-	interfaces "MarketMoogleAPI/business/database"
-	schema "MarketMoogleAPI/core/graph/model"
-	"MarketMoogleAPI/core/util"
-	"MarketMoogleAPI/infrastructure/providers"
-	"MarketMoogleAPI/test/mocks"
+	interfaces "MarketMoogle/business/database"
+	schema "MarketMoogle/core/graph/model"
+	"MarketMoogle/core/util"
+	"MarketMoogle/infrastructure/providers"
+	"MarketMoogle/test/mocks"
 	"context"
 	"math"
 	"reflect"

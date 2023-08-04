@@ -7,8 +7,8 @@
 package providers
 
 import (
-	interfaces "MarketMoogleAPI/business/database"
-	schema "MarketMoogleAPI/core/graph/model"
+	interfaces "MarketMoogle/business/database"
+	schema "MarketMoogle/core/graph/model"
 	"context"
 	"errors"
 	"log"

@@ -7,7 +7,7 @@
 package api
 
 import (
-	"MarketMoogleAPI/core/apitypes/xivapi"
+	"MarketMoogle/core/apitypes/xivapi"
 	"fmt"
 	"log"
 	"os"
@@ -22,8 +22,8 @@ func NewXivApiProvider() *XivApiProvider {
 	if os.Getenv("XIV_API_KEY") != "" {
 		keyString = fmt.Sprintf("?private_key=%s", os.Getenv("XIV_API_KEY"))
 	}
-	
-	return &XivApiProvider {
+
+	return &XivApiProvider{
 		privateKeyString: keyString,
 	}
 }

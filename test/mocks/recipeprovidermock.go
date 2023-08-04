@@ -7,7 +7,7 @@
 package mocks
 
 import (
-	schema "MarketMoogleAPI/core/graph/model"
+	schema "MarketMoogle/core/graph/model"
 	"context"
 )
 
@@ -19,7 +19,7 @@ func (recipeProv TestRecipeProvider) InsertRecipe(ctx context.Context, recipeToA
 	if recipeToAdd == nil {
 		return recipeToAdd, nil
 	}
-	
+
 	recipeProv.RecipeDatabase[recipeToAdd.ItemResultID] = recipeToAdd
 
 	return recipeToAdd, nil

@@ -6,7 +6,7 @@
 
 package xivapi
 
-import schema "MarketMoogleAPI/core/graph/model"
+import schema "MarketMoogle/core/graph/model"
 
 type ClassRecipe struct {
 	AmountIngredient0 int `json:"AmountIngredient0"`

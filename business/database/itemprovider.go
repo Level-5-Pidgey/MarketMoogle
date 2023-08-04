@@ -7,7 +7,7 @@
 package database
 
 import (
-	schema "MarketMoogleAPI/core/graph/model"
+	schema "MarketMoogle/core/graph/model"
 	"golang.org/x/net/context"
 )
 

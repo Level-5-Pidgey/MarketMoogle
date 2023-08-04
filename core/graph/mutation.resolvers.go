@@ -4,8 +4,8 @@ package graph
 // will be copied through when generating and any unknown code will be moved to the end.
 
 import (
-	generated "MarketMoogleAPI/core/graph/gen"
-	schema "MarketMoogleAPI/core/graph/model"
+	generated "MarketMoogle/core/graph/gen"
+	schema "MarketMoogle/core/graph/model"
 	"context"
 	"fmt"
 )

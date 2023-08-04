@@ -7,7 +7,7 @@
 package graph
 
 import (
-	database "MarketMoogleAPI/business/database"
+	database "MarketMoogle/business/database"
 )
 
 // This file will not be regenerated automatically.

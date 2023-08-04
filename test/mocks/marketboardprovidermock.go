@@ -7,8 +7,8 @@
 package mocks
 
 import (
-	"MarketMoogleAPI/core/apitypes/universalis"
-	schema "MarketMoogleAPI/core/graph/model"
+	"MarketMoogle/core/apitypes/universalis"
+	schema "MarketMoogle/core/graph/model"
 	"context"
 	"errors"
 )
@@ -22,7 +22,7 @@ func (mbProv TestMarketboardProvider) CreateMarketEntry(ctx context.Context, ent
 	if entryFromApi == nil {
 		return entryFromApi, nil
 	}
-	
+
 	mbProv.MbDatabase[entryFromApi.ItemID] = entryFromApi
 
 	return entryFromApi, nil

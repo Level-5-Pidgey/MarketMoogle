@@ -7,7 +7,7 @@
 package universalis
 
 import (
-	schema "MarketMoogleAPI/core/graph/model"
+	schema "MarketMoogle/core/graph/model"
 	"sort"
 	"strconv"
 )

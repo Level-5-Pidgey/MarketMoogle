@@ -7,9 +7,9 @@
 package database
 
 import (
-	interfaces "MarketMoogleAPI/business/database"
-	"MarketMoogleAPI/core/apitypes/universalis"
-	schema "MarketMoogleAPI/core/graph/model"
+	interfaces "MarketMoogle/business/database"
+	"MarketMoogle/core/apitypes/universalis"
+	schema "MarketMoogle/core/graph/model"
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
