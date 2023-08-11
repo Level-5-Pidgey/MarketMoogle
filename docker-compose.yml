@@ -1,35 +1,58 @@
 version: '3.7'
 
 services:
-  mongodb:
-    image: 'mongo:latest'
+  database:
+    image: 'postgres:alpine'
+    env_file:
+      - .env
     volumes:
-      - mongodb:/data/database
+      - database:/var/lib/postgresql/data
     environment:
-      MONGO_INITDB_ROOT_USERNAME: 'root'
-      MONGO_INITDB_ROOT_PASSWORD: 'access123!'
+      POSTGRES_USER_FILE: /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB: ${DB_NAME}
+    secrets:
+      - db_user
+      - db_password
     ports:
-      - '27017:27017'
+      - '5432:5432'
     expose:
-      - '27017'
+      - '5432'
   marketmoogleapi:
-    build: .
     image: 'golang:latest'
-    container_name: 'marketmoogle'
-    restart: 'always'
+    build: .
+    env_file:
+      - .env
+    container_name: 'marketmoogle-api'
+    command: air ./server.go -b 0.0.0.0
     environment:
-      API_PORT: '8080'
-      MONGO_PORT: '27017'
-      MONGO_HOST: 'mongodb'
-      MONGO_DBNAME: 'sanctuary'
-      XIV_API_KEY: 'd52759a79b3b42d68b80a3948c084fc517650dfcda5242358265ee0f8267c934'
-      UNIVERSALIS_API_KEY: 'd52759a79b3b42d68b80a3948c084fc517650dfcda5242358265ee0f8267c934'
+      DB_PORT: '5432'
+      DB_USER: /run/secrets/db_user
+      DB_PASSWORD: /run/secrets/db_password
+      DB_NAME: ${DB_NAME}
+      XIV_API_KEY: /run/secrets/xiv_api_key
+      UNIVERSALIS_API_KEY: /run/secrets/universalis_api_key
+    secrets:
+      - db_user
+      - db_password
+      - xiv_api_key
+      - universalis_api_key
     depends_on:
-      - "mongodb"
+      - 'database'
     ports:
-      - '8080:8080'
+      - '3000:3000'
     expose:
-      - '8080'
+      - '3000'
     
 volumes:
-  mongodb:
+  database:
+    
+secrets:
+  db_user:
+    file: secrets/db_user.txt
+  db_password:
+    file: secrets/db_password.txt
+  xiv_api_key:
+    file: secrets/xiv_api_key.txt
+  universalis_api_key:
+    file: secrets/universalis_api_key.txt

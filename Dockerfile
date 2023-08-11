@@ -1,7 +1,9 @@
 # Builder for go binaries
-FROM golang:1.18-alpine
+FROM golang:alpine
 
 WORKDIR /app
+
+RUN go install github.com/cosmtrek/air@latest
 
 COPY go.mod ./
 COPY go.sum ./
@@ -18,6 +20,6 @@ COPY ./infrastructure ./infrastructure/
 
 RUN go build -o /marketmoogle-docker
 
-EXPOSE 8080
+EXPOSE 3000
 
 CMD [ "/marketmoogle-docker" ]
