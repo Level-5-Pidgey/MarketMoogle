@@ -17,18 +17,20 @@ import (
 )
 
 type RecipeDatabaseProvider struct {
-	db             interfaces.MongoClient
+	db             interfaces.Client
 	collectionName string
 }
 
-func NewRecipeDatabaseProvider(dbClient interfaces.MongoClient) *RecipeDatabaseProvider {
+func NewRecipeDatabaseProvider(dbClient interfaces.Client) *RecipeDatabaseProvider {
 	return &RecipeDatabaseProvider{
 		db:             dbClient,
 		collectionName: "recipes",
 	}
 }
 
-func (recipeProv RecipeDatabaseProvider) InsertRecipe(ctx context.Context, recipeToAdd *schema.Recipe) (*schema.Recipe, error) {
+func (recipeProv RecipeDatabaseProvider) InsertRecipe(ctx context.Context, recipeToAdd *schema.Recipe) (
+	*schema.Recipe, error,
+) {
 	_, err := recipeProv.db.InsertOne(ctx, recipeProv.collectionName, recipeToAdd)
 
 	if err != nil {
@@ -39,11 +41,15 @@ func (recipeProv RecipeDatabaseProvider) InsertRecipe(ctx context.Context, recip
 	return recipeToAdd, nil
 }
 
-func (recipeProv RecipeDatabaseProvider) FindRecipesByItemId(ctx context.Context, itemId int) ([]*schema.Recipe, error) {
+func (recipeProv RecipeDatabaseProvider) FindRecipesByItemId(ctx context.Context, itemId int) (
+	[]*schema.Recipe, error,
+) {
 	return recipeProv.findRecipesBy(ctx, bson.M{"itemresultid": itemId})
 }
 
-func (recipeProv RecipeDatabaseProvider) FindRecipeByObjectId(ctx context.Context, objectIdString string) (*schema.Recipe, error) {
+func (recipeProv RecipeDatabaseProvider) FindRecipeByObjectId(
+	ctx context.Context, objectIdString string,
+) (*schema.Recipe, error) {
 	objectID, err := primitive.ObjectIDFromHex(objectIdString)
 
 	if err != nil {

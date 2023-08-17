@@ -1,4 +1,5 @@
-//+build tools
+//go:build tools
+// +build tools
 
 /*
  * Copyright (c) 2022 Carl Alexander Bird.
@@ -8,4 +9,7 @@
 
 package tools
 
-import _ "github.com/99designs/gqlgen"
+import (
+	_ "github.com/99designs/gqlgen"
+	_ "github.com/99designs/gqlgen/graphql/introspection"
+)

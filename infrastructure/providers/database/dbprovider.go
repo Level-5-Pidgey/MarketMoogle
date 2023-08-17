@@ -17,17 +17,19 @@ import (
 	"time"
 )
 
-type DatabaseClient struct {
+type Client struct {
 	client        *mongo.Client
 	databaseName  string
 	dbCredentials *options.Credential
 	dbUri         string
 }
 
-func NewDatabaseClient(dbName string, uri string, credentials options.Credential) *DatabaseClient {
-	clientConnection, err := mongo.NewClient(options.Client().
-		ApplyURI(uri).
-		SetAuth(credentials))
+func NewDatabaseClient(dbName string, uri string, credentials options.Credential) *Client {
+	clientConnection, err := mongo.NewClient(
+		options.Client().
+			ApplyURI(uri).
+			SetAuth(credentials),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,13 +39,13 @@ func NewDatabaseClient(dbName string, uri string, credentials options.Credential
 		log.Fatal(err)
 	}
 
-	//Verify connection
+	// Verify connection
 	err = clientConnection.Ping(context.TODO(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return &DatabaseClient{
+	return &Client{
 		client:        clientConnection,
 		databaseName:  dbName,
 		dbCredentials: &credentials,
@@ -51,11 +53,11 @@ func NewDatabaseClient(dbName string, uri string, credentials options.Credential
 	}
 }
 
-func (dbClient DatabaseClient) GetDatabaseName() string {
+func (dbClient Client) GetDatabaseName() string {
 	return dbClient.databaseName
 }
 
-func (dbClient DatabaseClient) GetDatabase(databaseName string) (*mongo.Database, error) {
+func (dbClient Client) GetDatabase(databaseName string) (*mongo.Database, error) {
 	db := dbClient.client.Database(databaseName)
 
 	if db == nil {
@@ -65,7 +67,9 @@ func (dbClient DatabaseClient) GetDatabase(databaseName string) (*mongo.Database
 	return db, nil
 }
 
-func (dbClient DatabaseClient) CollectionExists(ctx context.Context, collectionName string, database *mongo.Database) (bool, error) {
+func (dbClient Client) CollectionExists(ctx context.Context, collectionName string, database *mongo.Database) (
+	bool, error,
+) {
 	databaseCollections, err := database.ListCollectionNames(ctx, bson.D{})
 
 	if err != nil {
@@ -81,7 +85,7 @@ func (dbClient DatabaseClient) CollectionExists(ctx context.Context, collectionN
 	return false, nil
 }
 
-func (dbClient DatabaseClient) UpsertCollection(ctx context.Context, collectionName string, database *mongo.Database) error {
+func (dbClient Client) UpsertCollection(ctx context.Context, collectionName string, database *mongo.Database) error {
 	result, err := dbClient.CollectionExists(ctx, collectionName, database)
 
 	if result && err == nil {
@@ -91,47 +95,63 @@ func (dbClient DatabaseClient) UpsertCollection(ctx context.Context, collectionN
 	return database.CreateCollection(ctx, collectionName)
 }
 
-func (dbClient DatabaseClient) GetCollection(collectionName string) (*mongo.Collection, error) {
+func (dbClient Client) GetCollection(collectionName string) (*mongo.Collection, error) {
 	dbName := dbClient.GetDatabaseName()
 	db, err := dbClient.GetDatabase(dbName)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	coll := db.Collection(collectionName)
-	
+
 	if coll == nil {
-		return nil, errors.New(fmt.Sprintf("unable to locate collection with name %s in database %s", collectionName, dbName))
+		return nil, errors.New(
+			fmt.Sprintf(
+				"unable to locate collection with name %s in database %s",
+				collectionName,
+				dbName,
+			),
+		)
 	}
-	
+
 	return coll, nil
 }
 
-func (dbClient DatabaseClient) GetCollectionOnDatabase(collectionName string, databaseName string) (*mongo.Collection, error) {
+func (dbClient Client) GetCollectionOnDatabase(collectionName string, databaseName string) (*mongo.Collection, error) {
 	db, err := dbClient.GetDatabase(databaseName)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	coll := db.Collection(collectionName)
-	
+
 	if coll == nil {
-		return nil, errors.New(fmt.Sprintf("unable to locate collection with name %s in database %s", collectionName, databaseName))
+		return nil, errors.New(
+			fmt.Sprintf(
+				"unable to locate collection with name %s in database %s",
+				collectionName,
+				databaseName,
+			),
+		)
 	}
-	
+
 	return coll, nil
 }
 
-func (dbClient DatabaseClient) FindOne(ctx context.Context, collectionName string, filter interface{}, opts ...*options.FindOneOptions) (*mongo.SingleResult, error) {
+func (dbClient Client) FindOne(
+	ctx context.Context, collectionName string, filter interface{}, opts ...*options.FindOneOptions,
+) (*mongo.SingleResult, error) {
 	collection := dbClient.client.Database(dbClient.databaseName).Collection(collectionName)
 	result := collection.FindOne(ctx, filter, opts...)
 
 	return result, result.Err()
 }
 
-func (dbClient DatabaseClient) InsertOne(ctx context.Context, collectionName string, document interface{}, opts ...*options.InsertOneOptions) (*mongo.InsertOneResult, error) {
+func (dbClient Client) InsertOne(
+	ctx context.Context, collectionName string, document interface{}, opts ...*options.InsertOneOptions,
+) (*mongo.InsertOneResult, error) {
 	collection := dbClient.client.Database(dbClient.databaseName).Collection(collectionName)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -151,7 +171,9 @@ func (dbClient DatabaseClient) InsertOne(ctx context.Context, collectionName str
 	return res, nil
 }
 
-func (dbClient DatabaseClient) UpdateOne(ctx context.Context, collectionName string, filter interface{}, update interface{}, opts ...*options.UpdateOptions) (*mongo.UpdateResult, error) {
+func (dbClient Client) UpdateOne(
+	ctx context.Context, collectionName string, filter interface{}, update interface{}, opts ...*options.UpdateOptions,
+) (*mongo.UpdateResult, error) {
 	collection := dbClient.client.Database(dbClient.databaseName).Collection(collectionName)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -171,7 +193,10 @@ func (dbClient DatabaseClient) UpdateOne(ctx context.Context, collectionName str
 	return res, nil
 }
 
-func (dbClient DatabaseClient) ReplaceOne(ctx context.Context, collectionName string, filter interface{}, replacement interface{}, opts ...*options.ReplaceOptions) (*mongo.UpdateResult, error) {
+func (dbClient Client) ReplaceOne(
+	ctx context.Context, collectionName string, filter interface{}, replacement interface{},
+	opts ...*options.ReplaceOptions,
+) (*mongo.UpdateResult, error) {
 	collection := dbClient.client.Database(dbClient.databaseName).Collection(collectionName)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -191,7 +216,9 @@ func (dbClient DatabaseClient) ReplaceOne(ctx context.Context, collectionName st
 	return res, nil
 }
 
-func (dbClient DatabaseClient) CreateIndex(ctx context.Context, collectionName string, keys interface{}, opts *options.IndexOptions) error {
+func (dbClient Client) CreateIndex(
+	ctx context.Context, collectionName string, keys interface{}, opts *options.IndexOptions,
+) error {
 	model := mongo.IndexModel{
 		Keys:    keys,
 		Options: opts,

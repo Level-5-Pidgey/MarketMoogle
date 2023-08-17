@@ -1,28 +1,19 @@
 /*
- * Copyright (c) 2022 Carl Alexander Bird.
- * This file (server.go) is part of MarketMoogle and is released GNU General Public License.
+ * Copyright (c) 2022-2023 Carl Alexander Bird.
+ * This file (server.go) is part of MarketMoogle and is released under the GNU General Public License.
  * Please see the "LICENSE" file within MarketMoogle to view the full license. This file, and all code within MarketMoogle fall under the GNU General Public License.
  */
 
-package main
+package core
 
 import (
-	internalGraph "MarketMoogle/core/graph"
-	internalGen "MarketMoogle/core/graph/gen"
 	schema "MarketMoogle/core/graph/model"
 	"MarketMoogle/core/util"
 	"MarketMoogle/infrastructure/providers/api"
 	"MarketMoogle/infrastructure/providers/database"
 	"context"
 	"fmt"
-	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/99designs/gqlgen/graphql/playground"
-	_ "github.com/go-sql-driver/mysql"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
-	"net/http"
-	"os"
 	"time"
 )
 
@@ -30,86 +21,10 @@ const defaultPort = "8080"
 const initDb = false
 
 func main() {
-	port := os.Getenv("PORT")
-
-	if port == "" {
-		port = defaultPort
-	}
-
-	dbName := "marketmoogle"
-	var credentials options.Credential
-	if os.Getenv("MONGO_DBNAME") != "" {
-		dbName = os.Getenv("MONGO_DBNAME")
-	}
-
-	//Default credentials if no environment overrides are present
-	credentials.AuthSource = "admin"
-	credentials.Password = "access123!"
-	credentials.Username = "root"
-	var hostname = "localhost"
-	var mongoPort = "27017"
-
-	if os.Getenv("MONGO_AUTH_SOURCE") != "" {
-		credentials.AuthSource = os.Getenv("MONGO_AUTH_SOURCE")
-	}
-
-	if os.Getenv("MONGO_PASSWORD") != "" {
-		credentials.Password = os.Getenv("MONGO_PASSWORD")
-	}
-
-	if os.Getenv("MONGO_USERNAME") != "" {
-		credentials.Username = os.Getenv("MONGO_USERNAME")
-	}
-
-	if os.Getenv("MONGO_HOST") != "" {
-		hostname = os.Getenv("MONGO_HOST")
-	}
-
-	if os.Getenv("MONGO_PORT") != "" {
-		mongoPort = os.Getenv("MONGO_PORT")
-	}
-
-	uri := fmt.Sprintf("mongodb://%s:%s", hostname, mongoPort)
-
-	mongoDbClient := database.NewDatabaseClient(dbName, uri, credentials)
-
-	srv := handler.NewDefaultServer(
-		internalGen.NewExecutableSchema(
-			internalGen.Config{
-				Resolvers: &internalGraph.Resolver{
-					DbClient: mongoDbClient,
-				},
-			}),
-	)
-
-	//If starting the server for the first time, the mongoDB needs to be populated with items and recipes
-	if initDb {
-		CreateDatabaseIndexes(mongoDbClient)
-		GenerateMarketboardEntries(mongoDbClient)
-		GenerateGameItems(mongoDbClient)
-		GenerateVendorPrices(mongoDbClient)
-		GenerateLeveItems(mongoDbClient)
-	}
-
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
-
-	servers := []string{
-		"Ravana",
-		"Sophia",
-		"Sephirot",
-		"Zurvan",
-		"Bismarck",
-	}
-
-	//Periodically ping for new market data.
-	go interval(mongoDbClient, servers, 75)
-
-	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Println("yippee!")
 }
 
-func interval(dbClient *database.DatabaseClient, servers []string, transCount int) {
+func interval(dbClient *database.Client, servers []string, transCount int) {
 	index := 0
 	for range time.Tick(time.Minute * 4) {
 		if index >= len(servers) {
@@ -126,7 +41,7 @@ func interval(dbClient *database.DatabaseClient, servers []string, transCount in
 	}
 }
 
-func intervalMarketDataUpdate(dbClient *database.DatabaseClient, server string, transCount int) error {
+func intervalMarketDataUpdate(dbClient *database.Client, server string, transCount int) error {
 	dataCenter := "Materia"
 
 	universalisApiProvider := api.UniversalisApiProvider{}
@@ -161,7 +76,7 @@ func intervalMarketDataUpdate(dbClient *database.DatabaseClient, server string, 
 				return err
 			}
 
-			//If the last update was more than 30 minutes ago, query the API for fresh entries
+			// If the last update was more than 30 minutes ago, query the API for fresh entries
 			if lastUpdateTime.Before(time.Now().UTC().Add(time.Minute * -15)) {
 				newMarketData, err := universalisApiProvider.GetMarketInfoForDc(dataCenter, item.ItemID)
 
@@ -171,7 +86,13 @@ func intervalMarketDataUpdate(dbClient *database.DatabaseClient, server string, 
 				}
 
 				currentTimeString := util.GetCurrentTimestampString()
-				err = marketBoardProvider.ReplaceMarketEntry(ctx, item.ItemID, dataCenter, newMarketData, &currentTimeString)
+				err = marketBoardProvider.ReplaceMarketEntry(
+					ctx,
+					item.ItemID,
+					dataCenter,
+					newMarketData,
+					&currentTimeString,
+				)
 
 				if err != nil {
 					log.Fatal(err)
@@ -188,45 +109,7 @@ func intervalMarketDataUpdate(dbClient *database.DatabaseClient, server string, 
 	return nil
 }
 
-func CreateDatabaseIndexes(client *database.DatabaseClient) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	err := client.CreateIndex(
-		ctx,
-		"items",
-		bson.M{"itemid": 1},
-		&options.IndexOptions{Name: util.MakePointer[string]("itemid_index"), Unique: util.MakePointer[bool](true)},
-	)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = client.CreateIndex(
-		ctx,
-		"marketboard",
-		bson.D{{Key: "itemid", Value: 1}, {Key: "datacenter", Value: 1}},
-		&options.IndexOptions{Name: util.MakePointer[string]("itemid_and_datacenter_index"), Unique: util.MakePointer[bool](true)},
-	)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = client.CreateIndex(
-		ctx,
-		"recipes",
-		bson.M{"itemresultid": 1},
-		&options.IndexOptions{Name: util.MakePointer[string]("itemresult_index"), Unique: util.MakePointer[bool](false)},
-	)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func GenerateMarketboardEntries(dbClient *database.DatabaseClient) {
+func GenerateMarketboardEntries(dbClient *database.Client) {
 	universalisApiProvider := api.UniversalisApiProvider{}
 	marketBoardProvider := database.NewMarketboardDatabaseProvider(dbClient)
 	marketableItems, err := universalisApiProvider.GetMarketableItems()
@@ -271,12 +154,12 @@ func GenerateMarketboardEntries(dbClient *database.DatabaseClient) {
 	}
 }
 
-func GenerateGameItems(dbClient *database.DatabaseClient) {
+func GenerateGameItems(dbClient *database.Client) {
 	xivApiProv := api.NewXivApiProvider()
 	itemProv := database.NewItemDataBaseProvider(dbClient)
 	recipeProv := database.NewRecipeDatabaseProvider(dbClient)
 
-	//Load up all items to add to DB
+	// Load up all items to add to DB
 	allItems, err := xivApiProv.GetItems()
 
 	if err != nil {
@@ -286,9 +169,9 @@ func GenerateGameItems(dbClient *database.DatabaseClient) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
-	//SaveRecipe all items to database
+	// SaveRecipe all items to database
 	for _, itemId := range *allItems {
-		//Skip 1.0 items that can't be used anymore to save on Db space
+		// Skip 1.0 items that can't be used anymore to save on Db space
 		if itemId <= 1601 && itemId >= 19 {
 			continue
 		}
@@ -306,12 +189,12 @@ func GenerateGameItems(dbClient *database.DatabaseClient) {
 			CanBeHq:            gameItem.CanBeHq == 1,
 			IconID:             gameItem.IconID,
 			SellToVendorValue:  &gameItem.PriceLow,
-			BuyFromVendorValue: nil, //This will be added later
+			BuyFromVendorValue: nil, // This will be added later
 		}
 
 		_, err = itemProv.InsertItem(ctx, &newItem)
 
-		//Create recipe (if there is one) and save to DB
+		// Create recipe (if there is one) and save to DB
 		itemRecipes, err := xivApiProv.GetRecipeIdByItemId(itemId)
 
 		if itemRecipes == nil {
@@ -360,7 +243,7 @@ func classNameToEnum(classJob string) schema.CrafterType {
 	}
 }
 
-func GenerateLeveItems(dbClient *database.DatabaseClient) {
+func GenerateLeveItems(dbClient *database.Client) {
 	xivApiProvider := api.NewXivApiProvider()
 	itemProv := database.NewItemDataBaseProvider(dbClient)
 
@@ -397,7 +280,7 @@ func GenerateLeveItems(dbClient *database.DatabaseClient) {
 	}
 }
 
-func GenerateVendorPrices(dbClient *database.DatabaseClient) {
+func GenerateVendorPrices(dbClient *database.Client) {
 	xivApiProvider := api.NewXivApiProvider()
 	itemProv := database.NewItemDataBaseProvider(dbClient)
 

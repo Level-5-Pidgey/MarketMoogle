@@ -53,7 +53,7 @@ func recipeResaleObjectsAreTheSame(got *schema.RecipeProfitInfo, want *schema.Re
 		return true
 	}
 
-	//Since we're not creating the same pointer for object comparison we will have to compare elements individually
+	// Since we're not creating the same pointer for object comparison we will have to compare elements individually
 	if got.CraftType != want.CraftType {
 		return false
 	}
@@ -169,14 +169,16 @@ func TestItemProfitProvider_GetCheapestOnDc(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			//Other providers aren't necessary for this method
-			profitProv := providers.NewItemProfitProvider(nil, nil, nil)
+		t.Run(
+			tt.name, func(t *testing.T) {
+				// Other providers aren't necessary for this method
+				profitProv := providers.NewItemProfitProvider(nil, nil, nil)
 
-			if got := profitProv.GetCheapestOnDataCenter(tt.entries); !reflect.DeepEqual(got.TotalCost, tt.want) {
-				t.Errorf("GetCheapestOnDataCenter() = %v, want %v", got, tt.want)
-			}
-		})
+				if got := profitProv.GetCheapestOnDataCenter(tt.entries); !reflect.DeepEqual(got.TotalCost, tt.want) {
+					t.Errorf("GetCheapestOnDataCenter() = %v, want %v", got, tt.want)
+				}
+			},
+		)
 	}
 }
 
@@ -262,14 +264,19 @@ func TestItemProfitProvider_GetCheapestOnServer(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			//Other providers aren't necessary for this method
-			profitProv := providers.NewItemProfitProvider(nil, nil, nil)
+		t.Run(
+			tt.name, func(t *testing.T) {
+				// Other providers aren't necessary for this method
+				profitProv := providers.NewItemProfitProvider(nil, nil, nil)
 
-			if got := profitProv.GetCheapestOnServer(tt.args.entry, tt.args.server); !reflect.DeepEqual(got.PricePer, tt.pricePer) {
-				t.Errorf("GetCheapestOnServer() = %v, want %v", got, tt.pricePer)
-			}
-		})
+				if got := profitProv.GetCheapestOnServer(
+					tt.args.entry,
+					tt.args.server,
+				); !reflect.DeepEqual(got.PricePer, tt.pricePer) {
+					t.Errorf("GetCheapestOnServer() = %v, want %v", got, tt.pricePer)
+				}
+			},
+		)
 	}
 }
 
@@ -481,36 +488,39 @@ func TestItemProfitProvider_GetCrossDcResaleProfit(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+		t.Run(
+			tt.name, func(t *testing.T) {
+				ctx := context.Background()
 
-			testProviders := setupTestProviders()
+				testProviders := setupTestProviders()
 
-			profitProv := providers.NewItemProfitProvider(
-				testProviders.recipeProvider,
-				testProviders.marketboardProvider,
-				testProviders.itemProvider)
+				profitProv := providers.NewItemProfitProvider(
+					testProviders.recipeProvider,
+					testProviders.marketboardProvider,
+					testProviders.itemProvider,
+				)
 
-			//Add market entries to provider for test
-			for _, marketEntry := range tt.marketEntries {
-				_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, marketEntry)
+				// Add market entries to provider for test
+				for _, marketEntry := range tt.marketEntries {
+					_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, marketEntry)
 
-				if err != nil {
-					t.Errorf("error adding market entries to test provider")
+					if err != nil {
+						t.Errorf("error adding market entries to test provider")
+					}
 				}
-			}
 
-			got, err := profitProv.GetCrossDcResaleProfit(ctx, tt.args.obj, TestDataCenter, tt.args.homeServer)
+				got, err := profitProv.GetCrossDcResaleProfit(ctx, tt.args.obj, TestDataCenter, tt.args.homeServer)
 
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetCrossDcResaleProfit() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+				if (err != nil) != tt.wantErr {
+					t.Errorf("GetCrossDcResaleProfit() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
 
-			if !resaleInfoObjectsAreSame(got, tt.want) {
-				t.Errorf("GetCrossDcResaleProfit() got = %v, want %v", got, tt.want)
-			}
-		})
+				if !resaleInfoObjectsAreSame(got, tt.want) {
+					t.Errorf("GetCrossDcResaleProfit() got = %v, want %v", got, tt.want)
+				}
+			},
+		)
 	}
 }
 
@@ -687,32 +697,41 @@ func TestItemProfitProvider_GetRecipePurchaseInfo(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+		t.Run(
+			tt.name, func(t *testing.T) {
+				ctx := context.Background()
 
-			testProviders := setupTestProviders()
+				testProviders := setupTestProviders()
 
-			profitProv := providers.NewItemProfitProvider(
-				testProviders.recipeProvider,
-				testProviders.marketboardProvider,
-				testProviders.itemProvider)
+				profitProv := providers.NewItemProfitProvider(
+					testProviders.recipeProvider,
+					testProviders.marketboardProvider,
+					testProviders.itemProvider,
+				)
 
-			//Add market entries to provider for test
-			_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, tt.args.mbEntry)
-			if err != nil {
-				t.Errorf("error adding market entries to test provider")
-			}
+				// Add market entries to provider for test
+				_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, tt.args.mbEntry)
+				if err != nil {
+					t.Errorf("error adding market entries to test provider")
+				}
 
-			//Add basic items to items provider
-			_, err = testProviders.itemProvider.InsertItem(ctx, tt.args.item)
-			if err != nil {
-				t.Errorf("error adding test items to provider")
-			}
+				// Add basic items to items provider
+				_, err = testProviders.itemProvider.InsertItem(ctx, tt.args.item)
+				if err != nil {
+					t.Errorf("error adding test items to provider")
+				}
 
-			if got := profitProv.GetComponentCostInfo(tt.args.item, tt.args.mbEntry, tt.args.homeServer, tt.args.buyFromOtherServers, tt.args.count); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetComponentCostInfo() = %v, want %v", got, tt.want)
-			}
-		})
+				if got := profitProv.GetComponentCostInfo(
+					tt.args.item,
+					tt.args.mbEntry,
+					tt.args.homeServer,
+					tt.args.buyFromOtherServers,
+					tt.args.count,
+				); !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("GetComponentCostInfo() = %v, want %v", got, tt.want)
+				}
+			},
+		)
 	}
 }
 
@@ -879,55 +898,65 @@ func TestItemProfitProvider_GetRecipeProfitForItem(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+		t.Run(
+			tt.name, func(t *testing.T) {
+				ctx := context.Background()
 
-			testProviders := setupTestProviders()
+				testProviders := setupTestProviders()
 
-			profitProv := providers.NewItemProfitProvider(
-				testProviders.recipeProvider,
-				testProviders.marketboardProvider,
-				testProviders.itemProvider)
+				profitProv := providers.NewItemProfitProvider(
+					testProviders.recipeProvider,
+					testProviders.marketboardProvider,
+					testProviders.itemProvider,
+				)
 
-			//Add market entries to provider for test
-			for _, mbEntry := range tt.args.marketboardEntries {
-				_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, mbEntry)
+				// Add market entries to provider for test
+				for _, mbEntry := range tt.args.marketboardEntries {
+					_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, mbEntry)
 
-				if err != nil {
-					t.Errorf("error adding market entries to test provider")
+					if err != nil {
+						t.Errorf("error adding market entries to test provider")
+					}
 				}
-			}
 
-			//Add items to provider
-			for _, item := range tt.args.items {
-				_, err := testProviders.itemProvider.InsertItem(ctx, item)
+				// Add items to provider
+				for _, item := range tt.args.items {
+					_, err := testProviders.itemProvider.InsertItem(ctx, item)
 
-				if err != nil {
-					t.Errorf("error adding test items to provider")
+					if err != nil {
+						t.Errorf("error adding test items to provider")
+					}
 				}
-			}
 
-			//Add items recipe to recipe provider
-			_, err := testProviders.recipeProvider.InsertRecipe(ctx, tt.args.recipe)
-			if err != nil {
-				t.Errorf("error adding test recipe to provider")
-			}
+				// Add items recipe to recipe provider
+				_, err := testProviders.recipeProvider.InsertRecipe(ctx, tt.args.recipe)
+				if err != nil {
+					t.Errorf("error adding test recipe to provider")
+				}
 
-			//Return early if there's no items
-			if len(tt.args.items) == 0 {
-				return
-			}
+				// Return early if there's no items
+				if len(tt.args.items) == 0 {
+					return
+				}
 
-			got, err := profitProv.GetRecipeProfitForItem(ctx, tt.args.items[0], tt.args.dataCenter, tt.args.homeServer, tt.args.buyCrystals, tt.args.buyFromOtherServers)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetRecipeProfitForItem() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+				got, err := profitProv.GetRecipeProfitForItem(
+					ctx,
+					tt.args.items[0],
+					tt.args.dataCenter,
+					tt.args.homeServer,
+					tt.args.buyCrystals,
+					tt.args.buyFromOtherServers,
+				)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("GetRecipeProfitForItem() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
 
-			if !recipeResaleObjectsAreTheSame(got, tt.want) {
-				t.Errorf("GetRecipeProfitForItem() got = %v, want %v", got, tt.want)
-			}
-		})
+				if !recipeResaleObjectsAreTheSame(got, tt.want) {
+					t.Errorf("GetRecipeProfitForItem() got = %v, want %v", got, tt.want)
+				}
+			},
+		)
 	}
 }
 
@@ -1092,40 +1121,43 @@ func TestItemProfitProvider_GetVendorFlipProfit(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+		t.Run(
+			tt.name, func(t *testing.T) {
+				ctx := context.Background()
 
-			testProviders := setupTestProviders()
+				testProviders := setupTestProviders()
 
-			profitProv := providers.NewItemProfitProvider(
-				testProviders.recipeProvider,
-				testProviders.marketboardProvider,
-				testProviders.itemProvider)
+				profitProv := providers.NewItemProfitProvider(
+					testProviders.recipeProvider,
+					testProviders.marketboardProvider,
+					testProviders.itemProvider,
+				)
 
-			//Add market entries to provider for test
-			for _, mbEntry := range tt.args.marketboardEntries {
-				_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, mbEntry)
+				// Add market entries to provider for test
+				for _, mbEntry := range tt.args.marketboardEntries {
+					_, err := testProviders.marketboardProvider.CreateMarketEntry(ctx, mbEntry)
+
+					if err != nil {
+						t.Errorf("error adding market entries to test provider")
+					}
+				}
+
+				// Add obj to provider
+				_, err := testProviders.itemProvider.InsertItem(ctx, tt.args.obj)
 
 				if err != nil {
-					t.Errorf("error adding market entries to test provider")
+					t.Errorf("error adding test items to provider")
 				}
-			}
 
-			//Add obj to provider
-			_, err := testProviders.itemProvider.InsertItem(ctx, tt.args.obj)
-
-			if err != nil {
-				t.Errorf("error adding test items to provider")
-			}
-
-			got, err := profitProv.GetVendorFlipProfit(ctx, tt.args.obj, tt.args.dataCenter, tt.args.homeServer)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetVendorFlipProfit() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("GetVendorFlipProfit() got = %v, want %v", got, tt.want)
-			}
-		})
+				got, err := profitProv.GetVendorFlipProfit(ctx, tt.args.obj, tt.args.dataCenter, tt.args.homeServer)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("GetVendorFlipProfit() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				if got != tt.want {
+					t.Errorf("GetVendorFlipProfit() got = %v, want %v", got, tt.want)
+				}
+			},
+		)
 	}
 }

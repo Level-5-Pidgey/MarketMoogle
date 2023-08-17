@@ -18,12 +18,12 @@ import (
 )
 
 type MarketboardDatabaseProvider struct {
-	db                interfaces.MongoClient
+	db                interfaces.Client
 	listingsPerServer int
 	collectionName    string
 }
 
-func NewMarketboardDatabaseProvider(dbClient interfaces.MongoClient) *MarketboardDatabaseProvider {
+func NewMarketboardDatabaseProvider(dbClient interfaces.Client) *MarketboardDatabaseProvider {
 	return &MarketboardDatabaseProvider{
 		db:                dbClient,
 		listingsPerServer: 8,
@@ -31,7 +31,9 @@ func NewMarketboardDatabaseProvider(dbClient interfaces.MongoClient) *Marketboar
 	}
 }
 
-func (mbProv MarketboardDatabaseProvider) CreateMarketEntry(ctx context.Context, entryFromApi *schema.MarketboardEntry) (*schema.MarketboardEntry, error) {
+func (mbProv MarketboardDatabaseProvider) CreateMarketEntry(
+	ctx context.Context, entryFromApi *schema.MarketboardEntry,
+) (*schema.MarketboardEntry, error) {
 	_, err := mbProv.db.InsertOne(ctx, mbProv.collectionName, entryFromApi)
 
 	if err != nil {
@@ -42,7 +44,9 @@ func (mbProv MarketboardDatabaseProvider) CreateMarketEntry(ctx context.Context,
 	return entryFromApi, nil
 }
 
-func (mbProv MarketboardDatabaseProvider) ReplaceMarketEntry(ctx context.Context, itemId int, dataCenter string, newEntry *universalis.MarketQuery, currentTimestamp *string) error {
+func (mbProv MarketboardDatabaseProvider) ReplaceMarketEntry(
+	ctx context.Context, itemId int, dataCenter string, newEntry *universalis.MarketQuery, currentTimestamp *string,
+) error {
 	opts := options.Replace().SetUpsert(true)
 	filter := bson.M{"itemid": itemId, "datacenter": dataCenter}
 
@@ -64,7 +68,9 @@ func (mbProv MarketboardDatabaseProvider) ReplaceMarketEntry(ctx context.Context
 	return err
 }
 
-func (mbProv MarketboardDatabaseProvider) FindMarketboardEntryByObjectId(ctx context.Context, objectId string) (*schema.MarketboardEntry, error) {
+func (mbProv MarketboardDatabaseProvider) FindMarketboardEntryByObjectId(
+	ctx context.Context, objectId string,
+) (*schema.MarketboardEntry, error) {
 	objectID, err := primitive.ObjectIDFromHex(objectId)
 
 	if err != nil {
@@ -90,11 +96,15 @@ func (mbProv MarketboardDatabaseProvider) FindMarketboardEntryByObjectId(ctx con
 	return &marketboardEntry, nil
 }
 
-func (mbProv MarketboardDatabaseProvider) FindMarketboardEntriesByItemId(ctx context.Context, itemId int) ([]*schema.MarketboardEntry, error) {
+func (mbProv MarketboardDatabaseProvider) FindMarketboardEntriesByItemId(
+	ctx context.Context, itemId int,
+) ([]*schema.MarketboardEntry, error) {
 	return mbProv.findMarketboardEntriesBy(ctx, bson.M{"itemid": itemId})
 }
 
-func (mbProv MarketboardDatabaseProvider) FindItemEntryAcrossDataCenter(ctx context.Context, itemId int, dataCenter string) (*schema.MarketboardEntry, error) {
+func (mbProv MarketboardDatabaseProvider) FindItemEntryAcrossDataCenter(
+	ctx context.Context, itemId int, dataCenter string,
+) (*schema.MarketboardEntry, error) {
 	collection, err := mbProv.db.GetCollection(mbProv.collectionName)
 
 	if err != nil {
@@ -113,7 +123,7 @@ func (mbProv MarketboardDatabaseProvider) FindItemEntryAcrossDataCenter(ctx cont
 		}
 	}
 
-	//Return nil if nothing was found
+	// Return nil if nothing was found
 	if marketEntry.ItemID == 0 {
 		return nil, nil
 	}
@@ -121,11 +131,15 @@ func (mbProv MarketboardDatabaseProvider) FindItemEntryAcrossDataCenter(ctx cont
 	return &marketEntry, nil
 }
 
-func (mbProv MarketboardDatabaseProvider) GetAllMarketboardEntries(ctx context.Context) ([]*schema.MarketboardEntry, error) {
+func (mbProv MarketboardDatabaseProvider) GetAllMarketboardEntries(ctx context.Context) (
+	[]*schema.MarketboardEntry, error,
+) {
 	return mbProv.findMarketboardEntriesBy(ctx, bson.M{})
 }
 
-func (mbProv MarketboardDatabaseProvider) findMarketboardEntriesBy(ctx context.Context, filter bson.M) ([]*schema.MarketboardEntry, error) {
+func (mbProv MarketboardDatabaseProvider) findMarketboardEntriesBy(
+	ctx context.Context, filter bson.M,
+) ([]*schema.MarketboardEntry, error) {
 	collection, err := mbProv.db.GetCollection(mbProv.collectionName)
 
 	if err != nil {

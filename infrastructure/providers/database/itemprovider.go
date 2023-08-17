@@ -9,19 +9,19 @@ package database
 import (
 	interfaces "MarketMoogle/business/database"
 	schema "MarketMoogle/core/graph/model"
+	"context"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/net/context"
 	"log"
 )
 
 type ItemDatabaseProvider struct {
-	db             interfaces.MongoClient
+	db             interfaces.Client
 	collectionName string
 }
 
-func NewItemDataBaseProvider(dbClient interfaces.MongoClient) *ItemDatabaseProvider {
+func NewItemDataBaseProvider(dbClient interfaces.Client) *ItemDatabaseProvider {
 	return &ItemDatabaseProvider{
 		db:             dbClient,
 		collectionName: "items",
@@ -39,7 +39,9 @@ func (itemProv ItemDatabaseProvider) InsertItem(ctx context.Context, input *sche
 	return input, nil
 }
 
-func (itemProv ItemDatabaseProvider) FindItemByObjectId(ctx context.Context, objectIdString string) (*schema.Item, error) {
+func (itemProv ItemDatabaseProvider) FindItemByObjectId(ctx context.Context, objectIdString string) (
+	*schema.Item, error,
+) {
 	objectID, err := primitive.ObjectIDFromHex(objectIdString)
 
 	if err != nil {
@@ -121,24 +123,32 @@ func (itemProv ItemDatabaseProvider) UpdateVendorSellPrice(ctx context.Context, 
 		itemProv.collectionName,
 		bson.M{"itemid": itemId},
 		bson.D{
-			{"$set", bson.D{
-				{"buyfromvendorvalue", newPrice},
-			}},
-		})
+			{
+				"$set", bson.D{
+					{"buyfromvendorvalue", newPrice},
+				},
+			},
+		},
+	)
 
 	return err
 }
 
-func (itemProv ItemDatabaseProvider) UpdateLevequestInfo(ctx context.Context, itemId int, leve schema.CraftingLeve) error {
+func (itemProv ItemDatabaseProvider) UpdateLevequestInfo(
+	ctx context.Context, itemId int, leve schema.CraftingLeve,
+) error {
 	_, err := itemProv.db.UpdateOne(
 		ctx,
 		itemProv.collectionName,
 		bson.M{"itemid": itemId},
 		bson.D{
-			{"$set", bson.D{
-				{"associatedleve", leve},
-			}},
-		})
+			{
+				"$set", bson.D{
+					{"associatedleve", leve},
+				},
+			},
+		},
+	)
 
 	return err
 }
