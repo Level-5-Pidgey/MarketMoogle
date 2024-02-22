@@ -1,8 +1,0 @@
-type CraftingLeve {
-    LeveId: Int!
-    GilReward: Int!
-    ExpReward: Int!
-    QuestName: String!
-    LevelReq: Int!
-    JobReq: CrafterType!
-}

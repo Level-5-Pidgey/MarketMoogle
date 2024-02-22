@@ -1,4 +1,4 @@
-version: '3.7'
+version: '3.8'
 
 services:
   database:
@@ -15,23 +15,24 @@ services:
       - db_user
       - db_password
     ports:
-      - '5432:5432'
+      - ${DB_PORT}:${DB_PORT}
     expose:
-      - '5432'
+      - ${DB_PORT}
+    networks:
+      - db_network
   marketmoogleapi:
-    image: 'golang:latest'
-    build: .
+    image: 'golang:1.21-alpine'
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file:
       - .env
-    container_name: 'marketmoogle-api'
-    command: air ./server.go -b 0.0.0.0
+    container_name: 'marketmoogle-profit'
     environment:
-      DB_PORT: '5432'
-      DB_USER: /run/secrets/db_user
-      DB_PASSWORD: /run/secrets/db_password
+      SECRETS_DIR: /run/secrets/
+      DB_HOST: 'database'
+      DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}
-      XIV_API_KEY: /run/secrets/xiv_api_key
-      UNIVERSALIS_API_KEY: /run/secrets/universalis_api_key
     secrets:
       - db_user
       - db_password
@@ -40,13 +41,15 @@ services:
     depends_on:
       - 'database'
     ports:
-      - '3000:3000'
+      - ${API_PORT}:${API_PORT}
     expose:
-      - '3000'
-    
+      - ${API_PORT}
+    networks:
+      - db_network
+
 volumes:
   database:
-    
+
 secrets:
   db_user:
     file: secrets/db_user.txt
@@ -56,3 +59,7 @@ secrets:
     file: secrets/xiv_api_key.txt
   universalis_api_key:
     file: secrets/universalis_api_key.txt
+    
+networks:
+  db_network:
+    driver: bridge

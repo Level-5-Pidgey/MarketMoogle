@@ -1,25 +1,13 @@
-# Builder for go binaries
-FROM golang:alpine
+FROM golang:1.21-alpine
+LABEL authors="Carl Alexander"
 
 WORKDIR /app
 
-RUN go install github.com/cosmtrek/air@latest
+# pre-copy/cache go.mod for pre-downloading dependencies and only redownloading them in subsequent builds if they change
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
 
-COPY go.mod ./
-COPY go.sum ./
+COPY . ./
+RUN go build -v -o /app/marketmoogleapi
 
-RUN go mod download
-
-#Copy all .go files into container
-COPY *.go ./
-
-#Copy other package contents as well
-COPY ./business ./business/
-COPY ./core ./core/
-COPY ./infrastructure ./infrastructure/
-
-RUN go build -o /marketmoogle-docker
-
-EXPOSE 3000
-
-CMD [ "/marketmoogle-docker" ]
+CMD ["/app/marketmoogleapi"]

@@ -1,6 +1,0 @@
-type Mutation {
-    # Users
-    CreateUser(lodestoneId: Int): User!
-    UpdateUser(playerId: Int, input: UserInput!): User!
-    DeleteUser(playerId: Int): Boolean!
-}

@@ -1,6 +1,0 @@
-
-type RecipeResaleInfo {
-    ResaleInfo: ResaleInfo!
-    CraftLevel: Int!
-    CraftType: CrafterType!
-}

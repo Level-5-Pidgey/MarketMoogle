@@ -1,5 +1,0 @@
-
-type RecipeContents {
-    Item: Item!
-    Count: Int!
-}

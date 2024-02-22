@@ -17,4 +17,7 @@
 *.out
 
 # Directories
-secrets
+/secrets/
+/vendor/
+/migrations/ *.sql
+/dl/
