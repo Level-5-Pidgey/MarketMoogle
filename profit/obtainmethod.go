@@ -1,8 +1,8 @@
 package profitCalc
 
 import (
-	"github.com/level-5-pidgey/MarketMoogleApi/csv/datacollection"
-	csvType "github.com/level-5-pidgey/MarketMoogleApi/csv/types"
+	"github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
+	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
 	"reflect"
 	"slices"
 )

@@ -1,9 +1,11 @@
 package universalis
 
 import (
-	"github.com/level-5-pidgey/MarketMoogleApi/db"
+	"github.com/level-5-pidgey/MarketMoogle/db"
 	"time"
 )
+
+var twoYearsAgo = time.Now().Year() - 2
 
 type Entry struct {
 	Event         string    `bson:"event"`
@@ -51,24 +53,32 @@ func (entry *Entry) ConvertToDbListings() *[]db.Listing {
 
 func (entry *Entry) ConvertToDbSales() *[]db.Sale {
 	sales := entry.getSaleHistory()
-	result := make([]db.Sale, len(sales))
+	result := make([]db.Sale, 0, len(sales))
 
-	for saleIndex, sale := range sales {
+	for _, sale := range sales {
 		saleWorld := sale.WorldId
 		if entry.World != 0 {
 			saleWorld = entry.World
 		}
 
-		result[saleIndex] = db.Sale{
-			ItemId:        entry.Item,
-			WorldId:       saleWorld,
-			PricePer:      sale.PricePerUnit,
-			Quantity:      sale.Quantity,
-			TotalPrice:    sale.Total,
-			IsHighQuality: sale.Hq,
-			BuyerName:     sale.BuyerName,
-			Timestamp:     time.Unix(sale.Timestamp, 0),
+		saleTime := time.Unix(sale.Timestamp, 0)
+
+		if saleTime.Year() < twoYearsAgo {
+			continue
 		}
+
+		result = append(
+			result, db.Sale{
+				ItemId:        entry.Item,
+				WorldId:       saleWorld,
+				PricePer:      sale.PricePerUnit,
+				Quantity:      sale.Quantity,
+				TotalPrice:    sale.Total,
+				IsHighQuality: sale.Hq,
+				BuyerName:     sale.BuyerName,
+				Timestamp:     time.Unix(sale.Timestamp, 0),
+			},
+		)
 	}
 
 	return &result

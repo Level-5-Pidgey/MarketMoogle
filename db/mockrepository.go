@@ -121,3 +121,7 @@ func (r *MockRepository) DeleteSaleById(saleId int) error {
 func (r *MockRepository) Connect(connectionInfo string) error {
 	return nil
 }
+
+func (r *MockRepository) CreatePartitions() error {
+	return nil
+}

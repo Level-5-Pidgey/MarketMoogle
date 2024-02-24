@@ -1,9 +1,9 @@
 package csv
 
 import (
-	"github.com/level-5-pidgey/MarketMoogleApi/csv"
-	csvInterface "github.com/level-5-pidgey/MarketMoogleApi/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogleApi/csv/types"
+	"github.com/level-5-pidgey/MarketMoogle/csv"
+	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
+	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
 )
 
 func NewRecipeLevelReader() *csv.UngroupedXivApiCsvReader[csvType.RecipeLevel] {

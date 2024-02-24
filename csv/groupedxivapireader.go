@@ -4,7 +4,7 @@ import (
 	csvEncoding "encoding/csv"
 	"errors"
 	"fmt"
-	csv "github.com/level-5-pidgey/MarketMoogleApi/csv/interface"
+	csv "github.com/level-5-pidgey/MarketMoogle/csv/interface"
 	"io"
 	"log"
 	"sync"

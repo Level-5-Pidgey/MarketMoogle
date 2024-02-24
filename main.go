@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/level-5-pidgey/MarketMoogleApi/api/universalis"
-	dc "github.com/level-5-pidgey/MarketMoogleApi/csv/datacollection"
-	csvInterface "github.com/level-5-pidgey/MarketMoogleApi/csv/interface"
-	"github.com/level-5-pidgey/MarketMoogleApi/csv/readers"
-	csvType "github.com/level-5-pidgey/MarketMoogleApi/csv/types"
-	"github.com/level-5-pidgey/MarketMoogleApi/db"
-	"github.com/level-5-pidgey/MarketMoogleApi/profit"
+	"github.com/level-5-pidgey/MarketMoogle/api/universalis"
+	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
+	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readers"
+	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/profit"
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"log"
@@ -448,7 +448,7 @@ func dialUp(repository db.Repository, wg *sync.WaitGroup, worldId int) {
 		Path:   "/api/ws",
 	}
 
-	log.Printf("connecting to %s\n", u.String())
+	log.Printf("subscribing to ws %s with worldId %d\n", u.String(), worldId)
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {

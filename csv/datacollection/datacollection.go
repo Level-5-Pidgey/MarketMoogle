@@ -2,9 +2,9 @@ package datacollection
 
 import (
 	"fmt"
-	csvInterface "github.com/level-5-pidgey/MarketMoogleApi/csv/interface"
-	csvReader "github.com/level-5-pidgey/MarketMoogleApi/csv/readers"
-	csvType "github.com/level-5-pidgey/MarketMoogleApi/csv/types"
+	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
+	csvReader "github.com/level-5-pidgey/MarketMoogle/csv/readers"
+	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
 	"sync"
 )
 

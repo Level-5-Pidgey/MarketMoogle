@@ -2,10 +2,10 @@ package main
 
 import (
 	"github.com/go-chi/chi/v5"
-	"github.com/level-5-pidgey/MarketMoogleApi/csv"
-	dc "github.com/level-5-pidgey/MarketMoogleApi/csv/datacollection"
-	"github.com/level-5-pidgey/MarketMoogleApi/db"
-	profitCalc "github.com/level-5-pidgey/MarketMoogleApi/profit"
+	"github.com/level-5-pidgey/MarketMoogle/csv"
+	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
+	"github.com/level-5-pidgey/MarketMoogle/db"
+	profitCalc "github.com/level-5-pidgey/MarketMoogle/profit"
 	"net/http"
 	"sort"
 )

@@ -4,9 +4,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	dc "github.com/level-5-pidgey/MarketMoogleApi/csv/datacollection"
-	"github.com/level-5-pidgey/MarketMoogleApi/db"
-	profitCalc "github.com/level-5-pidgey/MarketMoogleApi/profit"
+	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
+	"github.com/level-5-pidgey/MarketMoogle/db"
+	profitCalc "github.com/level-5-pidgey/MarketMoogle/profit"
 	"net/http"
 )
 

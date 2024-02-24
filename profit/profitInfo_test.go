@@ -1,7 +1,7 @@
 package profitCalc
 
 import (
-	"github.com/level-5-pidgey/MarketMoogleApi/db"
+	"github.com/level-5-pidgey/MarketMoogle/db"
 	"reflect"
 	"testing"
 )

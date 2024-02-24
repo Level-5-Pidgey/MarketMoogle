@@ -2,7 +2,7 @@ package profitCalc
 
 import (
 	"fmt"
-	"github.com/level-5-pidgey/MarketMoogleApi/db"
+	"github.com/level-5-pidgey/MarketMoogle/db"
 	"log"
 	"math"
 	"sort"
@@ -568,7 +568,7 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 	// Calculate other variables and a "profit score"
 	profitMargin := bestSale.Value - cheapestMethod.Cost
 
-	salesPerHour := math.Max(p.salesPerHour(sales, 2), 0.005)
+	salesPerHour := math.Max(p.salesPerHour(sales, 7), 0.005)
 	adjustedProfit := float64(profitMargin) * salesPerHour
 	competitionFactor := 1.0 / math.Max(1, float64(len(listingsOnPlayerWorld)))
 	profitScore := math.Round((adjustedProfit * competitionFactor) / cheapestMethod.EffortFactor)

@@ -20,7 +20,7 @@ services:
       - ${DB_PORT}
     networks:
       - db_network
-  marketmoogleapi:
+  MarketMoogle:
     image: 'golang:1.21-alpine'
     build:
       context: .
