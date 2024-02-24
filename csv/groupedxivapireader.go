@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 	csv "github.com/level-5-pidgey/MarketMoogle/csv/interface"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"io"
 	"log"
 	"sync"
 )
 
-type GroupedXivApiCsvReader[T csv.ReaderType] struct {
+type GroupedXivApiCsvReader[T domain.ReaderType] struct {
 	csv.GroupedCsvReader[T]
 	csv.XivApiCsvInfo[T]
 }
