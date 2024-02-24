@@ -2,23 +2,23 @@ package main
 
 import (
 	"github.com/go-chi/chi/v5"
-	"github.com/level-5-pidgey/MarketMoogle/csv"
 	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
-	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 	profitCalc "github.com/level-5-pidgey/MarketMoogle/profit"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 	"net/http"
 	"sort"
 )
 
 type Controller struct {
 	dataCollection *dc.DataCollection
-	serverMap      *map[int]db.GameRegion
+	serverMap      *map[int]domain.GameRegion
 	profitCalc     *profitCalc.ProfitCalculator
 }
 
 func (c Controller) GetProfitInfo(w http.ResponseWriter, r *http.Request) {
-	itemId := csv.SafeStringToInt(chi.URLParam(r, "itemId"))
-	serverId := csv.SafeStringToInt(chi.URLParam(r, "worldId"))
+	itemId := util.SafeStringToInt(chi.URLParam(r, "itemId"))
+	serverId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
 	dcId := 0
 
 	for _, region := range *c.serverMap {
@@ -40,24 +40,24 @@ func (c Controller) GetProfitInfo(w http.ResponseWriter, r *http.Request) {
 	item, ok := itemMap[itemId]
 
 	if !ok {
-		ErrorJSON(w, nil, http.StatusNotFound)
+		util.ErrorJSON(w, nil, http.StatusNotFound)
 		return
 	}
 
 	profitInfo, err := c.profitCalc.CalculateProfitForItem(item, &playerInfo)
 	if err != nil {
-		ErrorJSON(w, err, http.StatusInternalServerError)
+		util.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
 	}
 
-	err = WriteJSON(w, http.StatusOK, profitInfo)
+	err = util.WriteJSON(w, http.StatusOK, profitInfo)
 	if err != nil {
-		ErrorJSON(w, err, http.StatusNotFound)
+		util.ErrorJSON(w, err, http.StatusNotFound)
 	}
 }
 
 func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
-	serverId := csv.SafeStringToInt(chi.URLParam(r, "worldId"))
+	serverId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
 
 	dcId := 0
 
@@ -85,7 +85,7 @@ func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
 
 		profitInfo, err := c.profitCalc.CalculateProfitForItem(item, &playerInfo)
 		if err != nil {
-			ErrorJSON(w, err, http.StatusInternalServerError)
+			util.ErrorJSON(w, err, http.StatusInternalServerError)
 			return
 		}
 
@@ -112,8 +112,8 @@ func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
 
 	top25 := result[0:25]
 
-	err := WriteJSON(w, http.StatusOK, top25)
+	err := util.WriteJSON(w, http.StatusOK, top25)
 	if err != nil {
-		ErrorJSON(w, err, http.StatusNotFound)
+		util.ErrorJSON(w, err, http.StatusNotFound)
 	}
 }

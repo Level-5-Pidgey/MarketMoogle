@@ -6,12 +6,13 @@ import (
 	"github.com/go-chi/cors"
 	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
 	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 	profitCalc "github.com/level-5-pidgey/MarketMoogle/profit"
 	"net/http"
 )
 
 func Routes(
-	items *map[int]*profitCalc.Item, collection *dc.DataCollection, servers *map[int]db.GameRegion,
+	items *map[int]*profitCalc.Item, collection *dc.DataCollection, servers *map[int]domain.GameRegion,
 	db db.Repository,
 ) http.Handler {
 	router := chi.NewRouter()

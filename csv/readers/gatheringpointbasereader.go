@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewGatheringPointBaseReader() *csv.UngroupedXivApiCsvReader[csvType.GatheringPointBase] {
@@ -32,7 +33,7 @@ func NewGatheringPointBaseReader() *csv.UngroupedXivApiCsvReader[csvType.Gatheri
 				itemIds := make([]int, 0)
 
 				for _, column := range itemColumns {
-					itemId := csv.SafeStringToInt(record[column])
+					itemId := util.SafeStringToInt(record[column])
 
 					if itemId != 0 {
 						itemIds = append(itemIds, itemId)
@@ -44,9 +45,9 @@ func NewGatheringPointBaseReader() *csv.UngroupedXivApiCsvReader[csvType.Gatheri
 				}
 
 				return &csvType.GatheringPointBase{
-					Key:                 csv.SafeStringToInt(record[csvColumns["key"]]),
-					GatheringTypeKey:    csv.SafeStringToInt(record[csvColumns["gatheringType"]]),
-					GatheringPointLevel: csv.SafeStringToInt(record[csvColumns["gatheringLevel"]]),
+					Key:                 util.SafeStringToInt(record[csvColumns["key"]]),
+					GatheringTypeKey:    util.SafeStringToInt(record[csvColumns["gatheringType"]]),
+					GatheringPointLevel: util.SafeStringToInt(record[csvColumns["gatheringLevel"]]),
 					GatheringItemKeys:   itemIds,
 				}, nil
 			},

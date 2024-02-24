@@ -4,7 +4,8 @@ import (
 	"errors"
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 	"strings"
 )
 
@@ -36,7 +37,7 @@ func NewItemCsvReader() *csv.UngroupedXivApiCsvReader[csvType.Item] {
 			FileName:   "Item",
 			RowsToSkip: 2,
 			ProcessRow: func(record []string) (*csvType.Item, error) {
-				itemId := csv.SafeStringToInt(record[csvColumns["id"]])
+				itemId := util.SafeStringToInt(record[csvColumns["id"]])
 				itemName := record[csvColumns["name"]]
 
 				if isOldItem(itemId, itemName) {
@@ -47,14 +48,14 @@ func NewItemCsvReader() *csv.UngroupedXivApiCsvReader[csvType.Item] {
 					return nil, errors.New("item name is empty")
 				}
 
-				canBeTraded := !csv.SafeStringToBool(record[csvColumns["isUntradable"]])
+				canBeTraded := !util.SafeStringToBool(record[csvColumns["isUntradable"]])
 				adjustedBuyPrice := 0
 				if canBeTraded {
-					adjustedBuyPrice = csv.SafeStringToInt(record[csvColumns["buyFromVendorPrice"]])
+					adjustedBuyPrice = util.SafeStringToInt(record[csvColumns["buyFromVendorPrice"]])
 				}
 
 				canDesynth := false
-				desynthsTo := csv.SafeStringToInt(record[csvColumns["canDesynth"]])
+				desynthsTo := util.SafeStringToInt(record[csvColumns["canDesynth"]])
 				if desynthsTo > 0 {
 					canDesynth = true
 				}
@@ -63,22 +64,22 @@ func NewItemCsvReader() *csv.UngroupedXivApiCsvReader[csvType.Item] {
 					Id:                 itemId,
 					Name:               record[csvColumns["name"]],
 					Description:        record[csvColumns["description"]],
-					IconId:             csv.SafeStringToInt(record[csvColumns["iconId"]]),
-					ItemLevel:          csv.SafeStringToInt(record[csvColumns["itemLevel"]]),
-					Rarity:             csv.SafeStringToInt(record[csvColumns["rarity"]]),
-					UiCategory:         csv.SafeStringToInt(record[csvColumns["uiCategory"]]),
-					SearchCategory:     csv.SafeStringToInt(record[csvColumns["searchCategory"]]),
-					SortCategory:       csv.SafeStringToInt(record[csvColumns["sortCategory"]]),
-					StackSize:          csv.SafeStringToInt(record[csvColumns["stackSize"]]),
+					IconId:             util.SafeStringToInt(record[csvColumns["iconId"]]),
+					ItemLevel:          util.SafeStringToInt(record[csvColumns["itemLevel"]]),
+					Rarity:             util.SafeStringToInt(record[csvColumns["rarity"]]),
+					UiCategory:         util.SafeStringToInt(record[csvColumns["uiCategory"]]),
+					SearchCategory:     util.SafeStringToInt(record[csvColumns["searchCategory"]]),
+					SortCategory:       util.SafeStringToInt(record[csvColumns["sortCategory"]]),
+					StackSize:          util.SafeStringToInt(record[csvColumns["stackSize"]]),
 					BuyFromVendorPrice: adjustedBuyPrice,
-					SellToVendorPrice:  csv.SafeStringToInt(record[csvColumns["sellToVendorPrice"]]),
-					ClassJobCategory:   csv.SafeStringToInt(record[csvColumns["classJobCategory"]]),
+					SellToVendorPrice:  util.SafeStringToInt(record[csvColumns["sellToVendorPrice"]]),
+					ClassJobCategory:   util.SafeStringToInt(record[csvColumns["classJobCategory"]]),
 					CanBeTraded:        canBeTraded,
-					DropsFromDungeon:   csv.SafeStringToBool(record[csvColumns["dungeonDrop"]]),
-					CanBeHq:            csv.SafeStringToBool(record[csvColumns["canBeHq"]]),
+					DropsFromDungeon:   util.SafeStringToBool(record[csvColumns["dungeonDrop"]]),
+					CanBeHq:            util.SafeStringToBool(record[csvColumns["canBeHq"]]),
 					CanDesynth:         canDesynth,
-					IsCollectable:      csv.SafeStringToBool(record[csvColumns["alwaysCollectable"]]),
-					IsGlamour:          csv.SafeStringToBool(record[csvColumns["isGlamourous"]]),
+					IsCollectable:      util.SafeStringToBool(record[csvColumns["alwaysCollectable"]]),
+					IsGlamour:          util.SafeStringToBool(record[csvColumns["isGlamourous"]]),
 				}
 
 				return &result, nil

@@ -3,7 +3,7 @@ package profitCalc
 import (
 	"errors"
 	"github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
 )
 
 /*

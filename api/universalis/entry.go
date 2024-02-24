@@ -1,7 +1,7 @@
 package universalis
 
 import (
-	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"time"
 )
 
@@ -24,8 +24,8 @@ func (entry *Entry) getSaleHistory() []Sale {
 	return entry.RecentHistory
 }
 
-func (entry *Entry) ConvertToDbListings() *[]db.Listing {
-	result := make([]db.Listing, len(entry.Listings))
+func (entry *Entry) ConvertToDbListings() *[]domain.Listing {
+	result := make([]domain.Listing, len(entry.Listings))
 	now := time.Now()
 
 	for listingIndex, listing := range entry.Listings {
@@ -34,7 +34,7 @@ func (entry *Entry) ConvertToDbListings() *[]db.Listing {
 			listingWorld = entry.World
 		}
 
-		result[listingIndex] = db.Listing{
+		result[listingIndex] = domain.Listing{
 			UniversalisId: listing.ListingId,
 			ItemId:        entry.Item,
 			WorldId:       listingWorld,
@@ -51,9 +51,9 @@ func (entry *Entry) ConvertToDbListings() *[]db.Listing {
 	return &result
 }
 
-func (entry *Entry) ConvertToDbSales() *[]db.Sale {
+func (entry *Entry) ConvertToDbSales() *[]domain.Sale {
 	sales := entry.getSaleHistory()
-	result := make([]db.Sale, 0, len(sales))
+	result := make([]domain.Sale, 0, len(sales))
 
 	for _, sale := range sales {
 		saleWorld := sale.WorldId
@@ -68,7 +68,7 @@ func (entry *Entry) ConvertToDbSales() *[]db.Sale {
 		}
 
 		result = append(
-			result, db.Sale{
+			result, domain.Sale{
 				ItemId:        entry.Item,
 				WorldId:       saleWorld,
 				PricePer:      sale.PricePerUnit,

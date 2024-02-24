@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewRecipeCsvReader() *csv.GroupedXivApiCsvReader[csvType.Recipe] {
@@ -50,8 +51,8 @@ func NewRecipeCsvReader() *csv.GroupedXivApiCsvReader[csvType.Recipe] {
 				ingredients := make([]csvType.Ingredient, 0)
 
 				for i := 0; i < 10; i++ {
-					ingredientItem := csv.SafeStringToInt(record[csvColumns[fmt.Sprintf("ingredient%d", i)]])
-					quantity := csv.SafeStringToInt(record[csvColumns[fmt.Sprintf("quantity%d", i)]])
+					ingredientItem := util.SafeStringToInt(record[csvColumns[fmt.Sprintf("ingredient%d", i)]])
+					quantity := util.SafeStringToInt(record[csvColumns[fmt.Sprintf("quantity%d", i)]])
 
 					if ingredientItem < 1 || quantity < 1 {
 						continue
@@ -66,18 +67,18 @@ func NewRecipeCsvReader() *csv.GroupedXivApiCsvReader[csvType.Recipe] {
 				}
 
 				return &csvType.Recipe{
-					Id:                     csv.SafeStringToInt(record[csvColumns["id"]]),
-					CraftType:              csv.SafeStringToInt(record[csvColumns["craftType"]]),
-					RecipeLevelId:          csv.SafeStringToInt(record[csvColumns["level"]]),
-					ResultItemId:           csv.SafeStringToInt(record[csvColumns["resultItem"]]),
-					Quantity:               csv.SafeStringToInt(record[csvColumns["resultAmount"]]),
+					Id:                     util.SafeStringToInt(record[csvColumns["id"]]),
+					CraftType:              util.SafeStringToInt(record[csvColumns["craftType"]]),
+					RecipeLevelId:          util.SafeStringToInt(record[csvColumns["level"]]),
+					ResultItemId:           util.SafeStringToInt(record[csvColumns["resultItem"]]),
+					Quantity:               util.SafeStringToInt(record[csvColumns["resultAmount"]]),
 					Ingredients:            ingredients,
-					RequiredCraftsmanship:  csv.SafeStringToInt(record[csvColumns["requiredCraftsmanship"]]),
-					RequiredControl:        csv.SafeStringToInt(record[csvColumns["requiredControl"]]),
-					SpecializationRequired: csv.SafeStringToBool(record[csvColumns["specializationRequired"]]),
-					IsExpert:               csv.SafeStringToBool(record[csvColumns["isExpert"]]),
-					CanQuickSynth:          csv.SafeStringToBool(record[csvColumns["canQuickSynth"]]),
-					SecretRecipeBookId:     csv.SafeStringToInt(record[csvColumns["recipeBookId"]]),
+					RequiredCraftsmanship:  util.SafeStringToInt(record[csvColumns["requiredCraftsmanship"]]),
+					RequiredControl:        util.SafeStringToInt(record[csvColumns["requiredControl"]]),
+					SpecializationRequired: util.SafeStringToBool(record[csvColumns["specializationRequired"]]),
+					IsExpert:               util.SafeStringToBool(record[csvColumns["isExpert"]]),
+					CanQuickSynth:          util.SafeStringToBool(record[csvColumns["canQuickSynth"]]),
+					SecretRecipeBookId:     util.SafeStringToInt(record[csvColumns["recipeBookId"]]),
 				}, nil
 			},
 		},

@@ -1,10 +1,12 @@
 package datacollection
 
-import csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+import (
+	"github.com/level-5-pidgey/MarketMoogle/domain"
+)
 
 type RecipeDataCollection struct {
-	Recipes      *map[int][]csvType.Recipe
-	RecipeBooks  *map[int]csvType.RecipeBook
-	RecipeLevels *map[int]csvType.RecipeLevel
-	CraftTypes   *map[int]csvType.CraftType
+	Recipes      *map[int][]domain.Recipe
+	RecipeBooks  *map[int]domain.RecipeBook
+	RecipeLevels *map[int]domain.RecipeLevel
+	CraftTypes   *map[int]domain.CraftType
 }

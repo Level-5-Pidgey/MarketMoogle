@@ -3,6 +3,7 @@ package profitCalc
 import (
 	"fmt"
 	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"log"
 	"math"
 	"sort"
@@ -52,7 +53,7 @@ type SaleMethod struct {
 // Get the method of exchange that returns the most gil (or currency) on this item.
 // Includes selling this item on the marketboard
 func (p *ProfitCalculator) GetBestSaleMethod(
-	item *Item, listings *[]*db.Listing, sales *[]*db.Sale, player *PlayerInfo,
+	item *Item, listings *[]*domain.Listing, sales *[]*domain.Sale, player *PlayerInfo,
 ) *SaleMethod {
 	var bestSale *SaleMethod
 
@@ -188,7 +189,7 @@ func isEasierToObtain(curr, new *ObtainInfo) bool {
 }
 
 func (p *ProfitCalculator) GetCostToObtain(
-	item *Item, numRequired int, listings *[]*db.Listing, player *PlayerInfo,
+	item *Item, numRequired int, listings *[]*domain.Listing, player *PlayerInfo,
 ) *ObtainInfo {
 	var cheapestMethod *ObtainInfo
 
@@ -197,7 +198,7 @@ func (p *ProfitCalculator) GetCostToObtain(
 	}
 
 	if !item.MarketProhibited && listings != nil {
-		var filteredListings []*db.Listing
+		var filteredListings []*domain.Listing
 		for _, listing := range *listings {
 			if listing.ItemId == item.Id {
 				filteredListings = append(filteredListings, listing)
@@ -289,7 +290,7 @@ func (p *ProfitCalculator) getCraftingObtainMethod(
 				continue
 			}
 
-			var ingredientListings *[]*db.Listing = nil
+			var ingredientListings *[]*domain.Listing = nil
 			if !ingredientItem.MarketProhibited {
 				ingredientResults, err := p.Db.GetListingsForItemOnDataCenter(ingredientItem.Id, player.DataCenter)
 				ingredientListings = ingredientResults
@@ -336,9 +337,9 @@ func (p *ProfitCalculator) getCraftingObtainMethod(
 }
 
 func getMarketObtainMethod(
-	item *Item, cheapestMethod *ObtainInfo, numRequired int, listings *[]*db.Listing, player *PlayerInfo,
+	item *Item, cheapestMethod *ObtainInfo, numRequired int, listings *[]*domain.Listing, player *PlayerInfo,
 ) *ObtainInfo {
-	sortListings := func(listings []*db.Listing) {
+	sortListings := func(listings []*domain.Listing) {
 		sort.Slice(
 			listings, func(i, ii int) bool {
 				listingAEffortCost := calculateListingEffortCost(listings[i], player.HomeServer)
@@ -401,7 +402,7 @@ func getMarketObtainMethod(
 	return cheapestMethod
 }
 
-func calculateListingEffortCost(listing *db.Listing, playerServer int) float64 {
+func calculateListingEffortCost(listing *domain.Listing, playerServer int) float64 {
 	listingScore := 0.99
 
 	if listing.WorldId == playerServer {
@@ -510,13 +511,13 @@ type ProfitInfo struct {
 	ProfitScore  float64
 }
 
-func (p *ProfitCalculator) salesPerHour(sales *[]*db.Sale, dayRange int) float64 {
+func (p *ProfitCalculator) salesPerHour(sales *[]*domain.Sale, dayRange int) float64 {
 	if sales == nil {
 		return 0
 	}
 
 	daysAgo := time.Now().AddDate(0, 0, -dayRange).UTC()
-	filteredSales := make([]*db.Sale, 0)
+	filteredSales := make([]*domain.Sale, 0)
 	for _, sale := range *sales {
 		if sale.Timestamp.After(daysAgo) {
 			filteredSales = append(filteredSales, sale)
@@ -531,8 +532,8 @@ func (p *ProfitCalculator) salesPerHour(sales *[]*db.Sale, dayRange int) float64
 
 func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) (*ProfitInfo, error) {
 	// Get market listings for item if this item is sellable
-	var listings *[]*db.Listing = nil
-	var listingsOnPlayerWorld []*db.Listing
+	var listings *[]*domain.Listing = nil
+	var listingsOnPlayerWorld []*domain.Listing
 	if !item.MarketProhibited {
 		ingredientResults, err := p.Db.GetListingsForItemOnDataCenter(item.Id, info.DataCenter)
 		listings = ingredientResults

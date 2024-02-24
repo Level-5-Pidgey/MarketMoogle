@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewItemGatheringItemReader() *csv.UngroupedXivApiCsvReader[csvType.GatheringItem] {
@@ -19,17 +20,17 @@ func NewItemGatheringItemReader() *csv.UngroupedXivApiCsvReader[csvType.Gatherin
 			FileName:   "GatheringItem",
 			RowsToSkip: 4,
 			ProcessRow: func(record []string) (*csvType.GatheringItem, error) {
-				itemId := csv.SafeStringToInt(record[csvColumns["itemId"]])
+				itemId := util.SafeStringToInt(record[csvColumns["itemId"]])
 
 				if itemId == 0 {
 					return nil, nil
 				}
 
 				return &csvType.GatheringItem{
-					Key:                   csv.SafeStringToInt(record[csvColumns["key"]]),
+					Key:                   util.SafeStringToInt(record[csvColumns["key"]]),
 					ItemId:                itemId,
-					GatheringItemLevelKey: csv.SafeStringToInt(record[csvColumns["gatheringItemLevel"]]),
-					IsHidden:              csv.SafeStringToBool(record[csvColumns["hidden"]]),
+					GatheringItemLevelKey: util.SafeStringToInt(record[csvColumns["gatheringItemLevel"]]),
+					IsHidden:              util.SafeStringToBool(record[csvColumns["hidden"]]),
 				}, nil
 			},
 		},

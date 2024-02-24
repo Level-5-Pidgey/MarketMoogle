@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewGcScripShopItemReader() *csv.UngroupedXivApiCsvReader[csvType.GcScripShopItem] {
@@ -20,10 +21,10 @@ func NewGcScripShopItemReader() *csv.UngroupedXivApiCsvReader[csvType.GcScripSho
 			RowsToSkip: 4,
 			ProcessRow: func(record []string) (*csvType.GcScripShopItem, error) {
 				return &csvType.GcScripShopItem{
-					Key:                      csv.SafeStringToInt(record[csvColumns["key"]]),
-					ItemId:                   csv.SafeStringToInt(record[csvColumns["itemId"]]),
-					GrandCompanyRankRequired: csv.SafeStringToInt(record[csvColumns["rankRequired"]]),
-					AmountRequired:           csv.SafeStringToInt(record[csvColumns["cost"]]),
+					Key:                      util.SafeStringToInt(record[csvColumns["key"]]),
+					ItemId:                   util.SafeStringToInt(record[csvColumns["itemId"]]),
+					GrandCompanyRankRequired: util.SafeStringToInt(record[csvColumns["rankRequired"]]),
+					AmountRequired:           util.SafeStringToInt(record[csvColumns["cost"]]),
 				}, nil
 			},
 		},

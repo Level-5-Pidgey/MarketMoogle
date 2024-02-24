@@ -4,6 +4,7 @@ import (
 	csvEncoding "encoding/csv"
 	"errors"
 	"fmt"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"io"
 	"log"
 	"net/http"
@@ -18,7 +19,7 @@ type GenericCsvReader interface {
 	ProcessCsv() (interface{}, error)
 }
 
-type XivApiCsvInfo[T ReaderType] struct {
+type XivApiCsvInfo[T domain.ReaderType] struct {
 	FileName   string
 	RowsToSkip int
 	ProcessRow func([]string) (*T, error)

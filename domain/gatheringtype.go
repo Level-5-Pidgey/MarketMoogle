@@ -1,4 +1,4 @@
-package csv
+package domain
 
 type GatheringType struct {
 	Key    int

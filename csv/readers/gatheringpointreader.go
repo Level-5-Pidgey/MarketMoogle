@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewGatheringPointReader() *csv.GroupedXivApiCsvReader[csvType.GatheringPoint] {
@@ -21,11 +22,11 @@ func NewGatheringPointReader() *csv.GroupedXivApiCsvReader[csvType.GatheringPoin
 			RowsToSkip: 4,
 			ProcessRow: func(record []string) (*csvType.GatheringPoint, error) {
 				return &csvType.GatheringPoint{
-					Key:                  csv.SafeStringToInt(record[csvColumns["key"]]),
-					GatheringTypeId:      csv.SafeStringToInt(record[csvColumns["gatheringType"]]),
-					GatheringPointBaseId: csv.SafeStringToInt(record[csvColumns["gatheringPointBase"]]),
-					TerritoryTypeId:      csv.SafeStringToInt(record[csvColumns["territoryType"]]),
-					PlaceNameId:          csv.SafeStringToInt(record[csvColumns["placeName"]]),
+					Key:                  util.SafeStringToInt(record[csvColumns["key"]]),
+					GatheringTypeId:      util.SafeStringToInt(record[csvColumns["gatheringType"]]),
+					GatheringPointBaseId: util.SafeStringToInt(record[csvColumns["gatheringPointBase"]]),
+					TerritoryTypeId:      util.SafeStringToInt(record[csvColumns["territoryType"]]),
+					PlaceNameId:          util.SafeStringToInt(record[csvColumns["placeName"]]),
 				}, nil
 			},
 		},

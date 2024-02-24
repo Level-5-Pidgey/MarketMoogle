@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewRegionReader() *csv.UngroupedXivApiCsvReader[csvType.DataCenter] {
@@ -20,16 +21,16 @@ func NewRegionReader() *csv.UngroupedXivApiCsvReader[csvType.DataCenter] {
 			RowsToSkip: 4,
 			ProcessRow: func(record []string) (*csvType.DataCenter, error) {
 				regionName := record[csvColumns["name"]]
-				isTest := csv.SafeStringToBool(record[csvColumns["isTest"]])
+				isTest := util.SafeStringToBool(record[csvColumns["isTest"]])
 
 				if regionName == "" || isTest {
 					return nil, nil
 				}
 
 				return &csvType.DataCenter{
-					Key:    csv.SafeStringToInt(record[csvColumns["id"]]),
+					Key:    util.SafeStringToInt(record[csvColumns["id"]]),
 					Name:   regionName,
-					Group:  csv.SafeStringToInt(record[csvColumns["group"]]),
+					Group:  util.SafeStringToInt(record[csvColumns["group"]]),
 					IsTest: isTest,
 				}, nil
 			},

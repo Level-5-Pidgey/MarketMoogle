@@ -1,7 +1,7 @@
 package profitCalc
 
 import (
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
 	"math"
 )
 

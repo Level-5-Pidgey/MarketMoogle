@@ -13,6 +13,7 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/readers"
 	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
 	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"github.com/level-5-pidgey/MarketMoogle/profit"
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
@@ -205,7 +206,7 @@ func main() {
 				for _, dataCenter := range region.DataCenters {
 					itemWaitGroup.Add(1)
 
-					go func(dc db.DataCenter, group *sync.WaitGroup) {
+					go func(dc domain.DataCenter, group *sync.WaitGroup) {
 						defer group.Done()
 
 						listingsUrl := fmt.Sprintf(
@@ -304,7 +305,7 @@ func makeApiRequest[T any](url string) (*T, error) {
 	return &responseObject, nil
 }
 
-func getGameServers() (*map[int]db.GameRegion, error) {
+func getGameServers() (*map[int]domain.GameRegion, error) {
 	readers := []csvInterface.GenericCsvReader{
 		// Ungrouped
 		csv.NewWorldReader(),
@@ -347,7 +348,7 @@ func getGameServers() (*map[int]db.GameRegion, error) {
 
 	var (
 		worlds      map[int]csvType.World
-		dataCenters map[int]csvType.DataCenter
+		dataCenters map[int]domain.DataCenter
 	)
 
 	results := make([]csvResults, 0)
@@ -390,13 +391,13 @@ func getGameServers() (*map[int]db.GameRegion, error) {
 				worlds = data
 			}
 		case "WorldDCGroupType":
-			if data, ok := result.data.(map[int]csvType.DataCenter); ok {
+			if data, ok := result.data.(map[int]domain.DataCenter); ok {
 				dataCenters = data
 			}
 		}
 	}
 
-	gameRegions := make(map[int]db.GameRegion)
+	gameRegions := make(map[int]domain.GameRegion)
 	for _, world := range worlds {
 		worldDc, ok := dataCenters[world.DataCenter]
 		if !ok {
@@ -406,24 +407,24 @@ func getGameServers() (*map[int]db.GameRegion, error) {
 		// Ensure the region exists
 		region, exists := gameRegions[worldDc.Group]
 		if !exists {
-			region = db.GameRegion{
+			region = domain.GameRegion{
 				Id:          worldDc.Group,
-				DataCenters: make(map[int]db.DataCenter),
+				DataCenters: make(map[int]domain.DataCenter),
 			}
 		}
 
 		regionDc, exists := region.DataCenters[world.DataCenter]
 		if !exists {
-			regionDc = db.DataCenter{
+			regionDc = domain.DataCenter{
 				Id:     worldDc.Key,
 				Name:   worldDc.Name,
-				Worlds: make(map[int]db.GameWorld),
+				Worlds: make(map[int]domain.World),
 			}
 		}
 
 		_, exists = regionDc.Worlds[world.Key]
 		if !exists {
-			regionDc.Worlds[world.Key] = db.GameWorld{
+			regionDc.Worlds[world.Key] = domain.World{
 				Id:   world.Key,
 				Name: world.Name,
 			}
@@ -600,7 +601,8 @@ type Application struct {
 }
 
 func (app *Application) Serve(
-	items *map[int]*profitCalc.Item, collection *dc.DataCollection, servers *map[int]db.GameRegion, db db.Repository,
+	items *map[int]*profitCalc.Item, collection *dc.DataCollection, servers *map[int]domain.GameRegion,
+	db db.Repository,
 ) error {
 	port := app.Config.Port
 

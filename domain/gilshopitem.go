@@ -1,4 +1,4 @@
-package csv
+package domain
 
 type GilShopItem struct {
 	Key    int

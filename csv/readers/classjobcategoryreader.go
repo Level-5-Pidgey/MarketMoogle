@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewClassJobCategoryReader() *csv.UngroupedXivApiCsvReader[csvType.ClassJobCategory] {
@@ -18,7 +19,7 @@ func NewClassJobCategoryReader() *csv.UngroupedXivApiCsvReader[csvType.ClassJobC
 			RowsToSkip: 4,
 			ProcessRow: func(record []string) (*csvType.ClassJobCategory, error) {
 				return &csvType.ClassJobCategory{
-					Id:          csv.SafeStringToInt(record[csvColumns["id"]]),
+					Id:          util.SafeStringToInt(record[csvColumns["id"]]),
 					JobCategory: record[csvColumns["name"]],
 				}, nil
 			},

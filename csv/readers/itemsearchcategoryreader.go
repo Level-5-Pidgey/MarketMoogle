@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewItemSearchCategoryReader() *csv.UngroupedXivApiCsvReader[csvType.ItemSearchCategory] {
@@ -22,11 +23,11 @@ func NewItemSearchCategoryReader() *csv.UngroupedXivApiCsvReader[csvType.ItemSea
 			RowsToSkip: 3,
 			ProcessRow: func(record []string) (*csvType.ItemSearchCategory, error) {
 				return &csvType.ItemSearchCategory{
-					Key:           csv.SafeStringToInt(record[csvColumns["id"]]),
+					Key:           util.SafeStringToInt(record[csvColumns["id"]]),
 					Name:          record[csvColumns["name"]],
-					IconId:        csv.SafeStringToInt(record[csvColumns["icon"]]),
-					CategoryValue: csv.SafeStringToInt(record[csvColumns["category"]]),
-					ClassJobId:    csv.SafeStringToInt(record[csvColumns["classJob"]]),
+					IconId:        util.SafeStringToInt(record[csvColumns["icon"]]),
+					CategoryValue: util.SafeStringToInt(record[csvColumns["category"]]),
+					ClassJobId:    util.SafeStringToInt(record[csvColumns["classJob"]]),
 				}, nil
 			},
 		},

@@ -2,7 +2,7 @@ package profitCalc
 
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 )
 
 type RecipeInfo struct {
@@ -26,7 +26,7 @@ type RecipeIngredients struct {
 	Quantity int
 }
 
-func getRecipes(item *csvType.Item, collection *datacollection.DataCollection) (*[]RecipeInfo, error) {
+func getRecipes(item *domain.Item, collection *datacollection.DataCollection) (*[]RecipeInfo, error) {
 	recipeLevels := *collection.RecipeLevels
 	recipeBooks := *collection.RecipeBooks
 	craftTypes := *collection.CraftTypes
@@ -84,7 +84,7 @@ func getRecipes(item *csvType.Item, collection *datacollection.DataCollection) (
 	return &result, nil
 }
 
-func getRecipeIngredientsForItem(recipe csvType.Recipe) []RecipeIngredients {
+func getRecipeIngredientsForItem(recipe domain.Recipe) []RecipeIngredients {
 	result := make([]RecipeIngredients, len(recipe.Ingredients))
 
 	for i, recipeIngredient := range recipe.Ingredients {

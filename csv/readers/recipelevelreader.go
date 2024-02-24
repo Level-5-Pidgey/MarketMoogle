@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewRecipeLevelReader() *csv.UngroupedXivApiCsvReader[csvType.RecipeLevel] {
@@ -24,13 +25,13 @@ func NewRecipeLevelReader() *csv.UngroupedXivApiCsvReader[csvType.RecipeLevel] {
 			RowsToSkip: 4,
 			ProcessRow: func(record []string) (*csvType.RecipeLevel, error) {
 				return &csvType.RecipeLevel{
-					Id:                     csv.SafeStringToInt(record[csvColumns["key"]]),
-					ClassJobLevel:          csv.SafeStringToInt(record[csvColumns["classJobLevel"]]),
-					SuggestedCraftsmanship: csv.SafeStringToInt(record[csvColumns["suggestedCraftsmanship"]]),
-					SuggestedControl:       csv.SafeStringToInt(record[csvColumns["suggestedControl"]]),
-					Difficulty:             csv.SafeStringToInt(record[csvColumns["difficulty"]]),
-					Quality:                csv.SafeStringToInt(record[csvColumns["quality"]]),
-					Durability:             csv.SafeStringToInt(record[csvColumns["durability"]]),
+					Id:                     util.SafeStringToInt(record[csvColumns["key"]]),
+					ClassJobLevel:          util.SafeStringToInt(record[csvColumns["classJobLevel"]]),
+					SuggestedCraftsmanship: util.SafeStringToInt(record[csvColumns["suggestedCraftsmanship"]]),
+					SuggestedControl:       util.SafeStringToInt(record[csvColumns["suggestedControl"]]),
+					Difficulty:             util.SafeStringToInt(record[csvColumns["difficulty"]]),
+					Quality:                util.SafeStringToInt(record[csvColumns["quality"]]),
+					Durability:             util.SafeStringToInt(record[csvColumns["durability"]]),
 				}, nil
 			},
 		},

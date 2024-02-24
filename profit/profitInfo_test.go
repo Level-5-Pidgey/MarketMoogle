@@ -2,6 +2,7 @@ package profitCalc
 
 import (
 	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"reflect"
 	"testing"
 )
@@ -9,8 +10,8 @@ import (
 func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 	type args struct {
 		item         *Item
-		listings     *[]*db.Listing
-		sales        *[]*db.Sale
+		listings     *[]*domain.Listing
+		sales        *[]*domain.Sale
 		playerServer *PlayerInfo
 	}
 	tests := []struct {
@@ -65,7 +66,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 						},
 					},
 				},
-				listings: &[]*db.Listing{
+				listings: &[]*domain.Listing{
 					{Id: 1, ItemId: 6, WorldId: 1, PricePer: 99, Quantity: 1, Total: 99},
 					{Id: 2, ItemId: 6, WorldId: 1, PricePer: 100, Quantity: 1, Total: 100},
 				},
@@ -98,7 +99,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 						},
 					},
 				},
-				listings: &[]*db.Listing{
+				listings: &[]*domain.Listing{
 					{Id: 1, ItemId: 5, WorldId: 1, PricePer: 100, Quantity: 5, Total: 500},
 					{Id: 2, ItemId: 5, WorldId: 1, PricePer: 101, Quantity: 1, Total: 101},
 				},
@@ -139,7 +140,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 	type args struct {
 		item         *Item
-		listings     *[]*db.Listing
+		listings     *[]*domain.Listing
 		playerServer *PlayerInfo
 		recipeItems  []*Item
 	}
@@ -181,7 +182,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						},
 					},
 				},
-				listings: &[]*db.Listing{
+				listings: &[]*domain.Listing{
 					{Id: 1, ItemId: 2, WorldId: 1, PricePer: 300, Quantity: 3, Total: 900},
 					{Id: 2, ItemId: 2, WorldId: 2, PricePer: 100, Quantity: 1, Total: 100},
 				},
@@ -339,7 +340,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						},
 					},
 				},
-				listings: &[]*db.Listing{
+				listings: &[]*domain.Listing{
 					{Id: 1, ItemId: 2, WorldId: 1, PricePer: 500, Quantity: 5, Total: 2500},
 					{Id: 2, ItemId: 2, WorldId: 2, PricePer: 501, Quantity: 3, Total: 1002},
 				},
@@ -595,7 +596,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						},
 					},
 				},
-				listings: &[]*db.Listing{
+				listings: &[]*domain.Listing{
 					{Id: 1, ItemId: 1, WorldId: 1, PricePer: 300, Quantity: 3, Total: 900},
 					{Id: 2, ItemId: 1, WorldId: 2, PricePer: 100, Quantity: 1, Total: 100},
 					{Id: 3, ItemId: 2, WorldId: 3, PricePer: 50, Quantity: 1, Total: 50},

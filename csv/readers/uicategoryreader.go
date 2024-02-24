@@ -3,7 +3,8 @@ package csv
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewItemUiCategoryReader() *csv.UngroupedXivApiCsvReader[csvType.ItemUiCategory] {
@@ -19,9 +20,9 @@ func NewItemUiCategoryReader() *csv.UngroupedXivApiCsvReader[csvType.ItemUiCateg
 			RowsToSkip: 4,
 			ProcessRow: func(record []string) (*csvType.ItemUiCategory, error) {
 				return &csvType.ItemUiCategory{
-					Id:     csv.SafeStringToInt(record[csvColumns["id"]]),
+					Id:     util.SafeStringToInt(record[csvColumns["id"]]),
 					Name:   record[csvColumns["name"]],
-					IconId: csv.SafeStringToInt(record[csvColumns["iconId"]]),
+					IconId: util.SafeStringToInt(record[csvColumns["iconId"]]),
 				}, nil
 			},
 		},

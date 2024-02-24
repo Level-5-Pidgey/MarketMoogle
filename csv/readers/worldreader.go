@@ -4,6 +4,7 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
 	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 )
 
 func NewWorldReader() *csv.UngroupedXivApiCsvReader[csvType.World] {
@@ -20,17 +21,17 @@ func NewWorldReader() *csv.UngroupedXivApiCsvReader[csvType.World] {
 			FileName:   "World",
 			RowsToSkip: 11,
 			ProcessRow: func(record []string) (*csvType.World, error) {
-				isPublic := csv.SafeStringToBool(record[csvColumns["isPublic"]])
+				isPublic := util.SafeStringToBool(record[csvColumns["isPublic"]])
 
 				if !isPublic {
 					return nil, nil
 				}
 
 				return &csvType.World{
-					Key:        csv.SafeStringToInt(record[csvColumns["id"]]),
+					Key:        util.SafeStringToInt(record[csvColumns["id"]]),
 					Name:       record[csvColumns["name"]],
-					Region:     csv.SafeStringToInt(record[csvColumns["region"]]),
-					DataCenter: csv.SafeStringToInt(record[csvColumns["dataCenter"]]),
+					Region:     util.SafeStringToInt(record[csvColumns["region"]]),
+					DataCenter: util.SafeStringToInt(record[csvColumns["dataCenter"]]),
 					IsPublic:   isPublic,
 				}, nil
 			},

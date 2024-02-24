@@ -1,4 +1,4 @@
-package csv
+package domain
 
 type ItemSearchCategory struct {
 	Key           int
