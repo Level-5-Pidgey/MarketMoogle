@@ -12,7 +12,7 @@ import (
 
 type Controller struct {
 	dataCollection *dc.DataCollection
-	worlds         *map[int]readertype.World
+	worlds         *map[int]*readertype.World
 	profitCalc     *profitCalc.ProfitCalculator
 }
 

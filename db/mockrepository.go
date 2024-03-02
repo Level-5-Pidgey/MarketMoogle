@@ -1,26 +1,24 @@
 package db
 
-import "github.com/level-5-pidgey/MarketMoogle/domain"
-
 type MockRepository struct {
-	listings map[int]*domain.Listing
-	sales    map[int]*domain.Sale
+	listings map[int]*Listing
+	sales    map[int]*Sale
 }
 
 func NewMockRepository() *MockRepository {
 	return &MockRepository{
-		listings: make(map[int]*domain.Listing),
-		sales:    make(map[int]*domain.Sale),
+		listings: make(map[int]*Listing),
+		sales:    make(map[int]*Sale),
 	}
 }
 
-func (r *MockRepository) CreateListing(listing domain.Listing) (*domain.Listing, error) {
+func (r *MockRepository) CreateListing(listing Listing) (*Listing, error) {
 	r.listings[listing.Id] = &listing
 
 	return &listing, nil
 }
 
-func (r *MockRepository) CreateListings(listings *[]domain.Listing) error {
+func (r *MockRepository) CreateListings(listings *[]Listing) error {
 	for _, listing := range *listings {
 		r.listings[listing.Id] = &listing
 	}
@@ -28,8 +26,8 @@ func (r *MockRepository) CreateListings(listings *[]domain.Listing) error {
 	return nil
 }
 
-func (r *MockRepository) GetListingsByItemAndWorldId(itemId, worldId int) (*[]*domain.Listing, error) {
-	result := make([]*domain.Listing, 0)
+func (r *MockRepository) GetListingsByItemAndWorldId(itemId, worldId int) (*[]*Listing, error) {
+	result := make([]*Listing, 0)
 	for _, listing := range r.listings {
 		if listing.ItemId == itemId && listing.WorldId == worldId {
 			result = append(result, listing)
@@ -39,8 +37,8 @@ func (r *MockRepository) GetListingsByItemAndWorldId(itemId, worldId int) (*[]*d
 	return &result, nil
 }
 
-func (r *MockRepository) GetListingsForItemOnDataCenter(itemId, dataCenterId int) (*[]*domain.Listing, error) {
-	result := make([]*domain.Listing, 0)
+func (r *MockRepository) GetListingsForItemOnDataCenter(itemId, dataCenterId int) (*[]*Listing, error) {
+	result := make([]*Listing, 0)
 	for _, listing := range r.listings {
 		// We're just gonna pretend that there's only 1 data center within tests
 		if listing.ItemId == itemId {
@@ -74,8 +72,8 @@ func (r *MockRepository) DeleteListings(universalisListingIds []string) error {
 
 // Market RecentHistory
 
-func (r *MockRepository) GetSalesByItemAndWorldId(itemId, worldId int) (*[]*domain.Sale, error) {
-	result := make([]*domain.Sale, 0)
+func (r *MockRepository) GetSalesByItemAndWorldId(itemId, worldId int) (*[]*Sale, error) {
+	result := make([]*Sale, 0)
 	for _, sale := range r.sales {
 		if sale.ItemId == itemId && sale.WorldId == worldId {
 			result = append(result, sale)
@@ -85,8 +83,8 @@ func (r *MockRepository) GetSalesByItemAndWorldId(itemId, worldId int) (*[]*doma
 	return &result, nil
 }
 
-func (r *MockRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (*[]*domain.Sale, error) {
-	result := make([]*domain.Sale, 0)
+func (r *MockRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (*[]*Sale, error) {
+	result := make([]*Sale, 0)
 	for _, sale := range r.sales {
 		// We're just gonna pretend that there's only 1 data center within tests
 		if sale.ItemId == itemId {
@@ -97,13 +95,13 @@ func (r *MockRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (
 	return &result, nil
 }
 
-func (r *MockRepository) CreateSale(sale domain.Sale) (*domain.Sale, error) {
+func (r *MockRepository) CreateSale(sale Sale) (*Sale, error) {
 	r.sales[sale.Id] = &sale
 
 	return &sale, nil
 }
 
-func (r *MockRepository) CreateSales(sales *[]domain.Sale) error {
+func (r *MockRepository) CreateSales(sales *[]Sale) error {
 	for _, sale := range *sales {
 		r.sales[sale.Id] = &sale
 	}

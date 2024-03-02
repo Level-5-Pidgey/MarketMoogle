@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
-	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"log"
 	"time"
 
@@ -25,13 +24,13 @@ const (
 type CacheableRepository struct {
 	DbPool *pgxpool.Pool
 
-	dataCenters *map[int]readertype.DataCenter
+	dataCenters *map[int]*readertype.DataCenter
 
-	worlds *map[int]readertype.World
+	worlds *map[int]*readertype.World
 }
 
 func InitRepository(
-	dsn string, worlds *map[int]readertype.World, dataCenters *map[int]readertype.DataCenter,
+	dsn string, worlds *map[int]*readertype.World, dataCenters *map[int]*readertype.DataCenter,
 ) (*CacheableRepository, error) {
 	repo := &CacheableRepository{}
 
@@ -48,7 +47,7 @@ func InitRepository(
 	return repo, nil
 }
 
-func (c *CacheableRepository) CreateListing(listing domain.Listing) (*domain.Listing, error) {
+func (c *CacheableRepository) CreateListing(listing Listing) (*Listing, error) {
 	if listing.PricePer > ignorePriceValue {
 		return &listing, nil
 	}
@@ -93,7 +92,7 @@ func (c *CacheableRepository) CreateListing(listing domain.Listing) (*domain.Lis
 	return &listing, nil
 }
 
-func (c *CacheableRepository) CreateListings(listings *[]domain.Listing) error {
+func (c *CacheableRepository) CreateListings(listings *[]Listing) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -233,7 +232,7 @@ func (c *CacheableRepository) DeleteListings(universalisListingIds []string) err
 	return nil
 }
 
-func (c *CacheableRepository) CreateSale(sale domain.Sale) (*domain.Sale, error) {
+func (c *CacheableRepository) CreateSale(sale Sale) (*Sale, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -265,7 +264,7 @@ func (c *CacheableRepository) CreateSale(sale domain.Sale) (*domain.Sale, error)
 	return &sale, nil
 }
 
-func (c *CacheableRepository) CreateSales(sales *[]domain.Sale) error {
+func (c *CacheableRepository) CreateSales(sales *[]Sale) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -546,7 +545,7 @@ func testConnection(pool *pgxpool.Pool) error {
 	return nil
 }
 
-func (c *CacheableRepository) GetListingsByItemAndWorldId(itemId, worldId int) (*[]*domain.Listing, error) {
+func (c *CacheableRepository) GetListingsByItemAndWorldId(itemId, worldId int) (*[]*Listing, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -565,7 +564,7 @@ func (c *CacheableRepository) GetListingsByItemAndWorldId(itemId, worldId int) (
 	return listings, nil
 }
 
-func (c *CacheableRepository) GetListingsForItemOnDataCenter(itemId, dataCenterId int) (*[]*domain.Listing, error) {
+func (c *CacheableRepository) GetListingsForItemOnDataCenter(itemId, dataCenterId int) (*[]*Listing, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -584,7 +583,7 @@ func (c *CacheableRepository) GetListingsForItemOnDataCenter(itemId, dataCenterI
 	return listings, nil
 }
 
-func (c *CacheableRepository) GetSalesByItemAndWorldId(itemId, worldId int) (*[]*domain.Sale, error) {
+func (c *CacheableRepository) GetSalesByItemAndWorldId(itemId, worldId int) (*[]*Sale, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -603,7 +602,7 @@ func (c *CacheableRepository) GetSalesByItemAndWorldId(itemId, worldId int) (*[]
 	return sales, nil
 }
 
-func (c *CacheableRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (*[]*domain.Sale, error) {
+func (c *CacheableRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (*[]*Sale, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -646,10 +645,10 @@ func getWorldsOnDc(c *CacheableRepository, dataCenterId int) *pgtype.Array[int] 
 	}
 }
 
-func extractListings(rows pgx.Rows, err error) (*[]*domain.Listing, error) {
-	var listings []*domain.Listing
+func extractListings(rows pgx.Rows, err error) (*[]*Listing, error) {
+	var listings []*Listing
 	for rows.Next() {
-		var listing domain.Listing
+		var listing Listing
 		err = rows.Scan(
 			&listing.Id, &listing.UniversalisId,
 			&listing.ItemId, &listing.RegionId,
@@ -669,10 +668,10 @@ func extractListings(rows pgx.Rows, err error) (*[]*domain.Listing, error) {
 	return &listings, nil
 }
 
-func extractSales(rows pgx.Rows, err error) (*[]*domain.Sale, error) {
-	var sales []*domain.Sale
+func extractSales(rows pgx.Rows, err error) (*[]*Sale, error) {
+	var sales []*Sale
 	for rows.Next() {
-		var sale domain.Sale
+		var sale Sale
 		err = rows.Scan(
 			&sale.Id, &sale.ItemId,
 			&sale.WorldId, &sale.PricePer,

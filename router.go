@@ -12,7 +12,7 @@ import (
 )
 
 func Routes(
-	items *map[int]*profitCalc.Item, collection *dc.DataCollection, worlds *map[int]readertype.World,
+	items *map[int]*profitCalc.Item, collection *dc.DataCollection, worlds *map[int]*readertype.World,
 	db db.Repository,
 ) http.Handler {
 	router := chi.NewRouter()

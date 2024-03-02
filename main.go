@@ -203,7 +203,7 @@ func main() {
 			for _, world := range *worlds {
 				itemWaitGroup.Add(1)
 
-				go func(world readertype.World, group *sync.WaitGroup) {
+				go func(world *readertype.World, group *sync.WaitGroup) {
 					defer group.Done()
 
 					listingsUrl := fmt.Sprintf(
@@ -301,7 +301,7 @@ func makeApiRequest[T any](url string) (*T, error) {
 	return &responseObject, nil
 }
 
-func getGameServers() (*map[int]readertype.World, *map[int]readertype.DataCenter, error) {
+func getGameServers() (*map[int]*readertype.World, *map[int]*readertype.DataCenter, error) {
 	readers := []csv.XivCsvReader{
 		csv.UngroupedXivCsvReader[readertype.World]{
 			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.World]{
@@ -352,8 +352,8 @@ func getGameServers() (*map[int]readertype.World, *map[int]readertype.DataCenter
 	}()
 
 	var (
-		worlds      map[int]readertype.World
-		dataCenters map[int]readertype.DataCenter
+		worlds      map[int]*readertype.World
+		dataCenters map[int]*readertype.DataCenter
 	)
 
 	results := make([]csvResults, 0)
@@ -392,17 +392,17 @@ func getGameServers() (*map[int]readertype.World, *map[int]readertype.DataCenter
 	for _, result := range results {
 		switch result.resultType {
 		case "World":
-			if data, ok := result.data.(map[int]readertype.World); ok {
+			if data, ok := result.data.(map[int]*readertype.World); ok {
 				worlds = data
 			}
 		case "WorldDCGroupType":
-			if data, ok := result.data.(map[int]readertype.DataCenter); ok {
+			if data, ok := result.data.(map[int]*readertype.DataCenter); ok {
 				dataCenters = data
 			}
 		}
 	}
 
-	gameWorlds := make(map[int]readertype.World)
+	gameWorlds := make(map[int]*readertype.World)
 	gameRegions := map[int]string{
 		1: "Japan",
 		2: "America",
@@ -587,7 +587,7 @@ type Application struct {
 }
 
 func (app *Application) Serve(
-	items *map[int]*profitCalc.Item, collection *dc.DataCollection, worlds *map[int]readertype.World,
+	items *map[int]*profitCalc.Item, collection *dc.DataCollection, worlds *map[int]*readertype.World,
 	db db.Repository,
 ) error {
 	port := app.Config.Port

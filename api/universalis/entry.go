@@ -1,11 +1,11 @@
 package universalis
 
 import (
-	"github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/db"
 	"time"
 )
 
-var twoYearsAgo = time.Now().Year() - 2
+var twoYearsAgo = time.Now().AddDate(-2, 0, 0)
 
 type Entry struct {
 	Event         string    `bson:"event"`
@@ -24,8 +24,8 @@ func (entry *Entry) getSaleHistory() []Sale {
 	return entry.RecentHistory
 }
 
-func (entry *Entry) ConvertToDbListings() *[]domain.Listing {
-	result := make([]domain.Listing, len(entry.Listings))
+func (entry *Entry) ConvertToDbListings() *[]db.Listing {
+	result := make([]db.Listing, len(entry.Listings))
 	now := time.Now()
 
 	for listingIndex, listing := range entry.Listings {
@@ -34,7 +34,7 @@ func (entry *Entry) ConvertToDbListings() *[]domain.Listing {
 			listingWorld = entry.World
 		}
 
-		result[listingIndex] = domain.Listing{
+		result[listingIndex] = db.Listing{
 			UniversalisId: listing.ListingId,
 			ItemId:        entry.Item,
 			WorldId:       listingWorld,
@@ -51,9 +51,9 @@ func (entry *Entry) ConvertToDbListings() *[]domain.Listing {
 	return &result
 }
 
-func (entry *Entry) ConvertToDbSales() *[]domain.Sale {
+func (entry *Entry) ConvertToDbSales() *[]db.Sale {
 	sales := entry.getSaleHistory()
-	result := make([]domain.Sale, 0, len(sales))
+	result := make([]db.Sale, 0, len(sales))
 
 	for _, sale := range sales {
 		saleWorld := sale.WorldId
@@ -63,12 +63,12 @@ func (entry *Entry) ConvertToDbSales() *[]domain.Sale {
 
 		saleTime := time.Unix(sale.Timestamp, 0)
 
-		if saleTime.Year() < twoYearsAgo {
+		if saleTime.Year() < twoYearsAgo.Year() {
 			continue
 		}
 
 		result = append(
-			result, domain.Sale{
+			result, db.Sale{
 				ItemId:        entry.Item,
 				WorldId:       saleWorld,
 				PricePer:      sale.PricePerUnit,
