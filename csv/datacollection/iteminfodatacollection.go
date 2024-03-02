@@ -1,15 +1,15 @@
 package datacollection
 
 import (
-	"github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 )
 
 type ItemInfoDataCollection struct {
-	Items                *map[int]domain.Item
-	Currencies           *map[int]domain.Item
-	ClassJobCategories   *map[int]domain.ClassJobCategory
-	ItemUiCategories     *map[int]domain.ItemUiCategory
-	ItemSearchCategories *map[int]domain.ItemSearchCategory
-	GilShopItems         *map[int]domain.GilShopItem
-	GcScripShopItem      *map[int]domain.GcScripShopItem
+	Items                *map[int]*readertype.Item
+	Currencies           *map[int]*readertype.Item
+	ClassJobCategories   *map[int]*readertype.ClassJobCategory
+	ItemUiCategories     *map[int]*readertype.ItemUiCategory
+	ItemSearchCategories *map[int]*readertype.ItemSearchCategory
+	GilShopItems         *map[int]*readertype.GilShopItem
+	GcScripShopItem      *map[int]*readertype.GcScripShopItem
 }

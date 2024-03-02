@@ -3,7 +3,7 @@ package profitCalc
 import (
 	"errors"
 	"github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
-	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 )
 
 /*
@@ -35,7 +35,7 @@ type Item struct {
 	CraftingRecipes *[]RecipeInfo
 }
 
-func CreateFromCsvData(csvItem *csvType.Item, dataCollection *datacollection.DataCollection) (*Item, error) {
+func CreateFromCsvData(csvItem *readertype.Item, dataCollection *datacollection.DataCollection) (*Item, error) {
 	itemRecipes, recipeError := getRecipes(csvItem, dataCollection)
 	obtainMethods, obtainError := getObtainMethods(csvItem, dataCollection)
 	exchangeMethods, exchangeError := getExchangeMethods(dataCollection, csvItem)
@@ -89,7 +89,7 @@ func CreateFromCsvData(csvItem *csvType.Item, dataCollection *datacollection.Dat
 }
 
 func getExchangeMethods(
-	dataCollection *datacollection.DataCollection, csvItem *csvType.Item,
+	dataCollection *datacollection.DataCollection, csvItem *readertype.Item,
 ) (*[]ExchangeMethod, error) {
 	var exchangeMethods []ExchangeMethod
 	if csvItem.SellToVendorPrice > 0 {

@@ -2,9 +2,8 @@ package datacollection
 
 import (
 	"fmt"
-	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	csvReader "github.com/level-5-pidgey/MarketMoogle/csv/readers"
-	"github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/csv"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"sync"
 )
 
@@ -16,27 +15,112 @@ type DataCollection struct {
 }
 
 func CreateDataCollection() (*DataCollection, error) {
-	readers := []csvInterface.GenericCsvReader{
+	readers := []csv.XivCsvReader{
 		// Grouped
-		csvReader.NewGatheringPointReader(),
-		csvReader.NewRecipeCsvReader(),
+		csv.GroupedXivCsvReader[readertype.GatheringPoint]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.GatheringPoint]{
+				RowsToSkip: 4,
+				FileName:   "GatheringPoint",
+			},
+		},
+		csv.GroupedXivCsvReader[readertype.Recipe]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.Recipe]{
+				RowsToSkip: 4,
+				FileName:   "Recipe",
+			},
+		},
 
 		// Ungrouped
-		csvReader.NewItemCsvReader(),
-		csvReader.NewRecipeBookCsvReader(),
-		csvReader.NewRecipeLevelReader(),
-		csvReader.NewCraftTypeReader(),
-		csvReader.NewClassJobCategoryReader(),
-		csvReader.NewItemUiCategoryReader(),
-		csvReader.NewItemSearchCategoryReader(),
-		csvReader.NewGilShopItemReader(),
-		csvReader.NewGcScripShopItemReader(),
-		csvReader.NewItemGatheringItemReader(),
-		csvReader.NewGatheringPointBaseReader(),
-		csvReader.NewGatheringItemLevelReader(),
-		csvReader.NewItemGatheringTypeReader(),
-		csvReader.NewPlaceNameReader(),
-		csvReader.NewTerritoryTypeReader(),
+		csv.UngroupedXivCsvReader[readertype.Item]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.Item]{
+				RowsToSkip: 2,
+				FileName:   "Item",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.RecipeBook]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.RecipeBook]{
+				RowsToSkip: 4,
+				FileName:   "SecretRecipeBook",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.RecipeLevel]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.RecipeLevel]{
+				RowsToSkip: 4,
+				FileName:   "RecipeLevelTable",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.CraftType]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.CraftType]{
+				RowsToSkip: 3,
+				FileName:   "CraftType",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.ClassJobCategory]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.ClassJobCategory]{
+				RowsToSkip: 3,
+				FileName:   "ClassJobCategory",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.ItemUiCategory]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.ItemUiCategory]{
+				RowsToSkip: 3,
+				FileName:   "ItemUICategory",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.ItemSearchCategory]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.ItemSearchCategory]{
+				RowsToSkip: 3,
+				FileName:   "ItemSearchCategory",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.GilShopItem]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.GilShopItem]{
+				RowsToSkip: 3,
+				FileName:   "GilShopItem",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.GcScripShopItem]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.GcScripShopItem]{
+				RowsToSkip: 4,
+				FileName:   "GCScripShopItem",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.GatheringItem]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.GatheringItem]{
+				RowsToSkip: 4,
+				FileName:   "GatheringItem",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.GatheringPointBase]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.GatheringPointBase]{
+				RowsToSkip: 4,
+				FileName:   "GatheringPointBase",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.GatheringItemLevel]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.GatheringItemLevel]{
+				RowsToSkip: 4,
+				FileName:   "GatheringItemlevelConvertTable",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.GatheringType]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.GatheringType]{
+				RowsToSkip: 3,
+				FileName:   "GatheringType",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.PlaceName]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.PlaceName]{
+				RowsToSkip: 4,
+				FileName:   "PlaceName",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.TerritoryType]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.TerritoryType]{
+				RowsToSkip: 4,
+				FileName:   "TerritoryType",
+			},
+		},
 	}
 
 	var wg sync.WaitGroup
@@ -51,7 +135,7 @@ func CreateDataCollection() (*DataCollection, error) {
 	for _, reader := range readers {
 		wg.Add(1)
 
-		go func(r csvInterface.GenericCsvReader) {
+		go func(r csv.XivCsvReader) {
 			defer wg.Done()
 
 			results, err := r.ProcessCsv()
@@ -75,28 +159,28 @@ func CreateDataCollection() (*DataCollection, error) {
 
 	var (
 		// Grouped
-		gatheringPoints map[int][]domain.GatheringPoint
-		recipes         map[int][]domain.Recipe
+		gatheringPoints map[int][]*readertype.GatheringPoint
+		recipes         map[int][]*readertype.Recipe
 
 		// Ungrouped
-		items                map[int]domain.Item
-		recipeBooks          map[int]domain.RecipeBook
-		recipeLevels         map[int]domain.RecipeLevel
-		craftTypes           map[int]domain.CraftType
-		classJobCategories   map[int]domain.ClassJobCategory
-		itemUiCategories     map[int]domain.ItemUiCategory
-		itemSearchCategories map[int]domain.ItemSearchCategory
-		gilShopItems         map[int]domain.GilShopItem
-		gcScripShopItems     map[int]domain.GcScripShopItem
-		gatheringItems       map[int]domain.GatheringItem
-		gatheringPointBases  map[int]domain.GatheringPointBase
-		gatheringItemLevels  map[int]domain.GatheringItemLevel
-		gatheringTypes       map[int]domain.GatheringType
-		placeNames           map[int]domain.PlaceName
-		territoryTypes       map[int]domain.TerritoryType
+		items                map[int]*readertype.Item
+		recipeBooks          map[int]*readertype.RecipeBook
+		recipeLevels         map[int]*readertype.RecipeLevel
+		craftTypes           map[int]*readertype.CraftType
+		classJobCategories   map[int]*readertype.ClassJobCategory
+		itemUiCategories     map[int]*readertype.ItemUiCategory
+		itemSearchCategories map[int]*readertype.ItemSearchCategory
+		gilShopItems         map[int]*readertype.GilShopItem
+		gcScripShopItems     map[int]*readertype.GcScripShopItem
+		gatheringItems       map[int]*readertype.GatheringItem
+		gatheringPointBases  map[int]*readertype.GatheringPointBase
+		gatheringItemLevels  map[int]*readertype.GatheringItemLevel
+		gatheringTypes       map[int]*readertype.GatheringType
+		placeNames           map[int]*readertype.PlaceName
+		territoryTypes       map[int]*readertype.TerritoryType
 
 		// Misc
-		currencies map[int]domain.Item
+		currencies map[int]*readertype.Item
 	)
 
 	results := make([]csvResults, 0)
@@ -165,18 +249,18 @@ func CreateDataCollection() (*DataCollection, error) {
 		switch result.resultType {
 		// Grouped
 		case "GatheringPoint":
-			if data, ok := result.data.(map[int][]domain.GatheringPoint); ok {
+			if data, ok := result.data.(map[int][]*readertype.GatheringPoint); ok {
 				gatheringPoints = data
 			}
 		case "Recipe":
-			if data, ok := result.data.(map[int][]domain.Recipe); ok {
+			if data, ok := result.data.(map[int][]*readertype.Recipe); ok {
 				recipes = data
 			}
 		// Ungrouped
 		case "Item":
-			if data, ok := result.data.(map[int]domain.Item); ok {
-				itemMap := make(map[int]domain.Item)
-				currencyMap := make(map[int]domain.Item)
+			if data, ok := result.data.(map[int]*readertype.Item); ok {
+				itemMap := make(map[int]*readertype.Item)
+				currencyMap := make(map[int]*readertype.Item)
 
 				// Split currencies into their own map.
 				for _, itemData := range data {
@@ -192,59 +276,59 @@ func CreateDataCollection() (*DataCollection, error) {
 				currencies = currencyMap
 			}
 		case "SecretRecipeBook":
-			if data, ok := result.data.(map[int]domain.RecipeBook); ok {
+			if data, ok := result.data.(map[int]*readertype.RecipeBook); ok {
 				recipeBooks = data
 			}
 		case "RecipeLevelTable":
-			if data, ok := result.data.(map[int]domain.RecipeLevel); ok {
+			if data, ok := result.data.(map[int]*readertype.RecipeLevel); ok {
 				recipeLevels = data
 			}
 		case "CraftType":
-			if data, ok := result.data.(map[int]domain.CraftType); ok {
+			if data, ok := result.data.(map[int]*readertype.CraftType); ok {
 				craftTypes = data
 			}
 		case "ClassJobCategory":
-			if data, ok := result.data.(map[int]domain.ClassJobCategory); ok {
+			if data, ok := result.data.(map[int]*readertype.ClassJobCategory); ok {
 				classJobCategories = data
 			}
 		case "ItemUICategory":
-			if data, ok := result.data.(map[int]domain.ItemUiCategory); ok {
+			if data, ok := result.data.(map[int]*readertype.ItemUiCategory); ok {
 				itemUiCategories = data
 			}
 		case "ItemSearchCategory":
-			if data, ok := result.data.(map[int]domain.ItemSearchCategory); ok {
+			if data, ok := result.data.(map[int]*readertype.ItemSearchCategory); ok {
 				itemSearchCategories = data
 			}
 		case "GilShopItem":
-			if data, ok := result.data.(map[int]domain.GilShopItem); ok {
+			if data, ok := result.data.(map[int]*readertype.GilShopItem); ok {
 				gilShopItems = data
 			}
 		case "GCScripShopItem":
-			if data, ok := result.data.(map[int]domain.GcScripShopItem); ok {
+			if data, ok := result.data.(map[int]*readertype.GcScripShopItem); ok {
 				gcScripShopItems = data
 			}
 		case "GatheringItem":
-			if data, ok := result.data.(map[int]domain.GatheringItem); ok {
+			if data, ok := result.data.(map[int]*readertype.GatheringItem); ok {
 				gatheringItems = data
 			}
 		case "GatheringPointBase":
-			if data, ok := result.data.(map[int]domain.GatheringPointBase); ok {
+			if data, ok := result.data.(map[int]*readertype.GatheringPointBase); ok {
 				gatheringPointBases = data
 			}
 		case "GatheringItemLevelConvertTable":
-			if data, ok := result.data.(map[int]domain.GatheringItemLevel); ok {
+			if data, ok := result.data.(map[int]*readertype.GatheringItemLevel); ok {
 				gatheringItemLevels = data
 			}
 		case "GatheringType":
-			if data, ok := result.data.(map[int]domain.GatheringType); ok {
+			if data, ok := result.data.(map[int]*readertype.GatheringType); ok {
 				gatheringTypes = data
 			}
 		case "PlaceName":
-			if data, ok := result.data.(map[int]domain.PlaceName); ok {
+			if data, ok := result.data.(map[int]*readertype.PlaceName); ok {
 				placeNames = data
 			}
 		case "TerritoryType":
-			if data, ok := result.data.(map[int]domain.TerritoryType); ok {
+			if data, ok := result.data.(map[int]*readertype.TerritoryType); ok {
 				territoryTypes = data
 			}
 		}

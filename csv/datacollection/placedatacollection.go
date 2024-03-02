@@ -1,10 +1,8 @@
 package datacollection
 
-import (
-	"github.com/level-5-pidgey/MarketMoogle/domain"
-)
+import "github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 
 type PlaceDataCollection struct {
-	PlaceNames     *map[int]domain.PlaceName
-	TerritoryTypes *map[int]domain.TerritoryType
+	PlaceNames     *map[int]*readertype.PlaceName
+	TerritoryTypes *map[int]*readertype.TerritoryType
 }

@@ -8,12 +8,10 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/level-5-pidgey/MarketMoogle/api/universalis"
+	"github.com/level-5-pidgey/MarketMoogle/csv"
 	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
-	csvInterface "github.com/level-5-pidgey/MarketMoogle/csv/interface"
-	"github.com/level-5-pidgey/MarketMoogle/csv/readers"
-	csvType "github.com/level-5-pidgey/MarketMoogle/csv/types"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/db"
-	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"github.com/level-5-pidgey/MarketMoogle/profit"
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
@@ -133,7 +131,7 @@ func main() {
 
 	profitItems := make(map[int]*profitCalc.Item)
 	for _, csvItem := range *collection.Items {
-		item, err := profitCalc.CreateFromCsvData(&csvItem, collection)
+		item, err := profitCalc.CreateFromCsvData(csvItem, collection)
 
 		if err != nil {
 			log.Fatalf("Error creating item %d: %s", csvItem.Id, err)
@@ -142,7 +140,7 @@ func main() {
 		profitItems[csvItem.Id] = item
 	}
 
-	gameServers, err := getGameServers()
+	worlds, dataCenters, err := getGameServers()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -158,7 +156,7 @@ func main() {
 		dbHost, dbPort, dbUser, dbPassword, dbName,
 	)
 
-	repository, err := db.InitRepository(dsn, gameServers)
+	repository, err := db.InitRepository(dsn, worlds, dataCenters)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -177,7 +175,7 @@ func main() {
 
 	// Start up API server
 	go func() {
-		err = app.Serve(&profitItems, collection, gameServers, repository)
+		err = app.Serve(&profitItems, collection, worlds, repository)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -202,59 +200,57 @@ func main() {
 			itemWaitGroup := &sync.WaitGroup{}
 
 			// Search for listings for this item on all data centers
-			for _, region := range *gameServers {
-				for _, dataCenter := range region.DataCenters {
-					itemWaitGroup.Add(1)
+			for _, world := range *worlds {
+				itemWaitGroup.Add(1)
 
-					go func(dc domain.DataCenter, group *sync.WaitGroup) {
-						defer group.Done()
+				go func(world readertype.World, group *sync.WaitGroup) {
+					defer group.Done()
 
-						listingsUrl := fmt.Sprintf(
-							"https://universalis.app/api/v2/%s/%d?listings=40&entries=20",
-							strings.ToLower(dc.Name),
+					listingsUrl := fmt.Sprintf(
+						"https://universalis.app/api/v2/%s/%d?listings=40&entries=20",
+						strings.ToLower(world.DataCenterName),
+						item.Id,
+					)
+
+					data, apiErr := makeApiRequest[universalis.Entry](listingsUrl)
+					if apiErr != nil && apiErr.Error() != "response object is empty" {
+						log.Printf("failed to get listings from universalis: %s\n", apiErr)
+					}
+
+					if data == nil {
+						return
+					}
+
+					// Assign the item id to the data because for some reason universalis uses 2 different "item id" names
+					data.Item = item.Id
+
+					listings := data.ConvertToDbListings()
+
+					apiErr = repository.CreateListings(listings)
+					if apiErr != nil {
+						log.Printf("failed to create listings in db: %s\n", apiErr)
+					} else {
+						fmt.Printf(
+							"Added %d listings for item #%d on the %s datacenter\n",
+							len(*listings),
 							item.Id,
+							world.Name,
 						)
+					}
 
-						data, apiErr := makeApiRequest[universalis.Entry](listingsUrl)
-						if apiErr != nil && apiErr.Error() != "response object is empty" {
-							log.Printf("failed to get listings from universalis: %s\n", apiErr)
-						}
-
-						if data == nil {
-							return
-						}
-
-						// Assign the item id to the data because for some reason universalis uses 2 different "item id" names
-						data.Item = item.Id
-
-						listings := data.ConvertToDbListings()
-
-						apiErr = repository.CreateListings(listings)
-						if apiErr != nil {
-							log.Printf("failed to create listings in db: %s\n", apiErr)
-						} else {
-							fmt.Printf(
-								"Added %d listings for item #%d on the %s datacenter\n",
-								len(*listings),
-								item.Id,
-								dc.Name,
-							)
-						}
-
-						sales := data.ConvertToDbSales()
-						apiErr = repository.CreateSales(sales)
-						if apiErr != nil {
-							log.Printf("failed to create listings in db: %s\n", apiErr)
-						} else {
-							fmt.Printf(
-								"Added %d sales for item #%d on the %s datacenter\n",
-								len(*sales),
-								item.Id,
-								dc.Name,
-							)
-						}
-					}(dataCenter, itemWaitGroup)
-				}
+					sales := data.ConvertToDbSales()
+					apiErr = repository.CreateSales(sales)
+					if apiErr != nil {
+						log.Printf("failed to create listings in db: %s\n", apiErr)
+					} else {
+						fmt.Printf(
+							"Added %d sales for item #%d on the %s datacenter\n",
+							len(*sales),
+							item.Id,
+							world.Name,
+						)
+					}
+				}(world, itemWaitGroup)
 			}
 
 			itemWaitGroup.Wait()
@@ -305,11 +301,20 @@ func makeApiRequest[T any](url string) (*T, error) {
 	return &responseObject, nil
 }
 
-func getGameServers() (*map[int]domain.GameRegion, error) {
-	readers := []csvInterface.GenericCsvReader{
-		// Ungrouped
-		csv.NewWorldReader(),
-		csv.NewRegionReader(),
+func getGameServers() (*map[int]readertype.World, *map[int]readertype.DataCenter, error) {
+	readers := []csv.XivCsvReader{
+		csv.UngroupedXivCsvReader[readertype.World]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.World]{
+				RowsToSkip: 11,
+				FileName:   "World",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.DataCenter]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.DataCenter]{
+				RowsToSkip: 4,
+				FileName:   "WorldDCGroupType",
+			},
+		},
 	}
 
 	var wg sync.WaitGroup
@@ -324,7 +329,7 @@ func getGameServers() (*map[int]domain.GameRegion, error) {
 	for _, reader := range readers {
 		wg.Add(1)
 
-		go func(r csvInterface.GenericCsvReader) {
+		go func(r csv.XivCsvReader) {
 			defer wg.Done()
 
 			results, err := r.ProcessCsv()
@@ -347,12 +352,12 @@ func getGameServers() (*map[int]domain.GameRegion, error) {
 	}()
 
 	var (
-		worlds      map[int]csvType.World
-		dataCenters map[int]domain.DataCenter
+		worlds      map[int]readertype.World
+		dataCenters map[int]readertype.DataCenter
 	)
 
 	results := make([]csvResults, 0)
-	errors := make([]error, 0)
+	readerErrors := make([]error, 0)
 
 	for {
 		select {
@@ -366,7 +371,7 @@ func getGameServers() (*map[int]domain.GameRegion, error) {
 			if !ok {
 				errorsChan = nil // Avoid reading from closed channel
 			} else {
-				errors = append(errors, err)
+				readerErrors = append(readerErrors, err)
 			}
 		}
 
@@ -375,67 +380,48 @@ func getGameServers() (*map[int]domain.GameRegion, error) {
 		}
 	}
 
-	if len(errors) > 0 {
-		fmt.Printf("Multiple (%d) errors occurred: ", len(errors))
-		for index, err := range errors {
+	if len(readerErrors) > 0 {
+		fmt.Printf("Multiple (%d) readerErrors occurred: ", len(readerErrors))
+		for index, err := range readerErrors {
 			fmt.Printf("Error #%d: %v\n", index+1, err)
 		}
 
-		return nil, fmt.Errorf("multiple (%d) errors occurred", len(errors))
+		return nil, nil, fmt.Errorf("multiple (%d) readerErrors occurred", len(readerErrors))
 	}
 
 	for _, result := range results {
 		switch result.resultType {
 		case "World":
-			if data, ok := result.data.(map[int]csvType.World); ok {
+			if data, ok := result.data.(map[int]readertype.World); ok {
 				worlds = data
 			}
 		case "WorldDCGroupType":
-			if data, ok := result.data.(map[int]domain.DataCenter); ok {
+			if data, ok := result.data.(map[int]readertype.DataCenter); ok {
 				dataCenters = data
 			}
 		}
 	}
 
-	gameRegions := make(map[int]domain.GameRegion)
-	for _, world := range worlds {
-		worldDc, ok := dataCenters[world.DataCenter]
-		if !ok {
-			continue
-		}
-
-		// Ensure the region exists
-		region, exists := gameRegions[worldDc.Group]
-		if !exists {
-			region = domain.GameRegion{
-				Id:          worldDc.Group,
-				DataCenters: make(map[int]domain.DataCenter),
-			}
-		}
-
-		regionDc, exists := region.DataCenters[world.DataCenter]
-		if !exists {
-			regionDc = domain.DataCenter{
-				Id:     worldDc.Key,
-				Name:   worldDc.Name,
-				Worlds: make(map[int]domain.World),
-			}
-		}
-
-		_, exists = regionDc.Worlds[world.Key]
-		if !exists {
-			regionDc.Worlds[world.Key] = domain.World{
-				Id:   world.Key,
-				Name: world.Name,
-			}
-		}
-
-		// Update or add at each level
-		region.DataCenters[world.DataCenter] = regionDc
-		gameRegions[worldDc.Group] = region
+	gameWorlds := make(map[int]readertype.World)
+	gameRegions := map[int]string{
+		1: "Japan",
+		2: "America",
+		3: "Europe",
+		4: "Oceania",
 	}
 
-	return &gameRegions, nil
+	for _, world := range worlds {
+		worldDataCenter, ok := dataCenters[world.DataCenterId]
+		if ok {
+			world.DataCenterName = worldDataCenter.Name
+			world.RegionId = worldDataCenter.Group
+			world.RegionName = gameRegions[world.RegionId]
+		}
+
+		gameWorlds[world.Id] = world
+	}
+
+	return &gameWorlds, &dataCenters, nil
 }
 
 func dialUp(repository db.Repository, wg *sync.WaitGroup, worldId int) {
@@ -601,14 +587,14 @@ type Application struct {
 }
 
 func (app *Application) Serve(
-	items *map[int]*profitCalc.Item, collection *dc.DataCollection, servers *map[int]domain.GameRegion,
+	items *map[int]*profitCalc.Item, collection *dc.DataCollection, worlds *map[int]readertype.World,
 	db db.Repository,
 ) error {
 	port := app.Config.Port
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
-		Handler: Routes(items, collection, servers, db),
+		Handler: Routes(items, collection, worlds, db),
 	}
 
 	return srv.ListenAndServe()

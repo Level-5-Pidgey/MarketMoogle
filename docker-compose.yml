@@ -1,5 +1,5 @@
-version: '3.8'
-
+version: '3.9'
+name: marketmoogleapi
 services:
   database:
     image: 'postgres:alpine'

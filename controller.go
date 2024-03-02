@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/go-chi/chi/v5"
 	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
-	"github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	profitCalc "github.com/level-5-pidgey/MarketMoogle/profit"
 	"github.com/level-5-pidgey/MarketMoogle/util"
 	"net/http"
@@ -12,27 +12,29 @@ import (
 
 type Controller struct {
 	dataCollection *dc.DataCollection
-	serverMap      *map[int]domain.GameRegion
+	worlds         *map[int]readertype.World
 	profitCalc     *profitCalc.ProfitCalculator
+}
+
+func (c Controller) getDcIdFromWorldId(queryWorldId int) int {
+	dcId := 0
+
+	// Get datacenter id from the player's world id
+	for _, world := range *c.worlds {
+		if world.Id == queryWorldId {
+			dcId = world.DataCenterId
+		}
+	}
+	return dcId
 }
 
 func (c Controller) GetProfitInfo(w http.ResponseWriter, r *http.Request) {
 	itemId := util.SafeStringToInt(chi.URLParam(r, "itemId"))
-	serverId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
-	dcId := 0
-
-	for _, region := range *c.serverMap {
-		for _, dataCenter := range region.DataCenters {
-			for _, world := range dataCenter.Worlds {
-				if world.Id == serverId {
-					dcId = dataCenter.Id
-				}
-			}
-		}
-	}
+	queryWorldId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
+	dcId := c.getDcIdFromWorldId(queryWorldId)
 
 	playerInfo := profitCalc.PlayerInfo{
-		HomeServer:       serverId,
+		HomeServer:       queryWorldId,
 		DataCenter:       dcId,
 		GrandCompanyRank: 99,
 	}
@@ -57,19 +59,8 @@ func (c Controller) GetProfitInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
-	serverId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
-
-	dcId := 0
-
-	for _, region := range *c.serverMap {
-		for _, dataCenter := range region.DataCenters {
-			for _, world := range dataCenter.Worlds {
-				if world.Id == serverId {
-					dcId = dataCenter.Id
-				}
-			}
-		}
-	}
+	worldId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
+	dcId := c.getDcIdFromWorldId(worldId)
 
 	result := make([]*profitCalc.ProfitInfo, 0)
 	for _, item := range *c.profitCalc.ItemMap {
@@ -78,7 +69,7 @@ func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
 		}
 
 		playerInfo := profitCalc.PlayerInfo{
-			HomeServer:       serverId,
+			HomeServer:       worldId,
 			DataCenter:       dcId,
 			GrandCompanyRank: 99,
 		}

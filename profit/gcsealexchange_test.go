@@ -1,19 +1,19 @@
 package profitCalc
 
 import (
-	csv "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"testing"
 )
 
 func Test_CalculateSealValue(t *testing.T) {
 	tests := []struct {
 		name string
-		item *csv.Item
+		item *readertype.Item
 		want int
 	}{
 		{
 			name: "iLvl 635 Returns correct value",
-			item: &csv.Item{
+			item: &readertype.Item{
 				Id:                 40766,
 				Name:               "Voidmoon Coat of Fending",
 				Description:        "",
@@ -37,7 +37,7 @@ func Test_CalculateSealValue(t *testing.T) {
 		},
 		{
 			name: "iLvl 470 Returns correct value",
-			item: &csv.Item{
+			item: &readertype.Item{
 				Id:                 25608,
 				Name:               "Augmented Deepshadow Earring of Fending",
 				Description:        "",
@@ -61,7 +61,7 @@ func Test_CalculateSealValue(t *testing.T) {
 		},
 		{
 			name: "iLvl 375 Returns correct value",
-			item: &csv.Item{
+			item: &readertype.Item{
 				Id:                 24398,
 				Name:               "Alliance Circlet of Healing",
 				Description:        "",
@@ -85,7 +85,7 @@ func Test_CalculateSealValue(t *testing.T) {
 		},
 		{
 			name: "iLvl 205 Returns correct value",
-			item: &csv.Item{
+			item: &readertype.Item{
 				Id:                 14771,
 				Name:               "Halone's Breeches of Fending",
 				Description:        "",
@@ -109,7 +109,7 @@ func Test_CalculateSealValue(t *testing.T) {
 		},
 		{
 			name: "iLvl 49 Returns correct value",
-			item: &csv.Item{
+			item: &readertype.Item{
 				Id:                 31571,
 				Name:               "Aurum Boots",
 				Description:        "",
@@ -133,7 +133,7 @@ func Test_CalculateSealValue(t *testing.T) {
 		},
 		{
 			name: "Item without an iLvl Returns 0",
-			item: &csv.Item{
+			item: &readertype.Item{
 				Id:        1,
 				Name:      "Non-existant Item",
 				ItemLevel: 0,

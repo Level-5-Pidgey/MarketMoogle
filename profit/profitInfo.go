@@ -164,7 +164,7 @@ type ObtainInfo struct {
 }
 
 type PurchaseInfo struct {
-	Item *Item
+	ItemId int
 
 	Quantity int
 
@@ -378,7 +378,7 @@ func getMarketObtainMethod(
 		numRequired -= listing.Quantity
 		purchasePlan.ItemsRequired = append(
 			purchasePlan.ItemsRequired, &PurchaseInfo{
-				Item:     item,
+				ItemId:   item.Id,
 				Quantity: listing.Quantity,
 				Server:   listing.WorldId,
 				BuyFrom:  listing.RetainerName,
@@ -438,7 +438,7 @@ func getNonMarketObtainMethod(
 		currentMethod := ObtainInfo{
 			ItemsRequired: []*PurchaseInfo{
 				{
-					Item:     item,
+					ItemId:   item.Id,
 					Quantity: numOfExchanges,
 					Server:   player.HomeServer,
 				},
@@ -491,7 +491,7 @@ func combinePurchaseInfo(slice1, slice2 []*PurchaseInfo) []*PurchaseInfo {
 	itemMap := make(map[string]*PurchaseInfo)
 
 	for _, pInfo := range append(slice1, slice2...) {
-		key := fmt.Sprintf("%v-%d", pInfo.Item.Id, pInfo.Server) // Assuming Item has an ID field
+		key := fmt.Sprintf("%v-%d", pInfo.ItemId, pInfo.Server) // Assuming Item has an ID field
 		if existing, found := itemMap[key]; found {
 			existing.Quantity += pInfo.Quantity
 		} else {
@@ -512,22 +512,38 @@ type ProfitInfo struct {
 }
 
 func (p *ProfitCalculator) salesPerHour(sales *[]*domain.Sale, dayRange int) float64 {
-	if sales == nil {
+	if sales == nil || len(*sales) == 0 {
 		return 0
 	}
 
 	daysAgo := time.Now().AddDate(0, 0, -dayRange).UTC()
-	filteredSales := make([]*domain.Sale, 0)
+	var filteredSales []*domain.Sale
 	for _, sale := range *sales {
 		if sale.Timestamp.After(daysAgo) {
 			filteredSales = append(filteredSales, sale)
 		}
 	}
 
-	totalHours := dayRange * 24
+	// If no sales in the specified range, return 0
+	if len(filteredSales) <= 1 {
+		return 0
+	}
 
-	// Count number of sales retrieved, then divide by number of hours
-	return float64(len(filteredSales)) / float64(totalHours)
+	// Calculate the total gap in hours between consecutive sales
+	var totalGapHours float64 = 0
+	for i := 1; i < len(filteredSales); i++ {
+		gap := filteredSales[i].Timestamp.Sub(filteredSales[i-1].Timestamp).Hours()
+		totalGapHours += gap
+	}
+
+	// Calculate average gap in hours (total gap divided by number of gaps)
+	avgGapHours := totalGapHours / float64(len(filteredSales)-1)
+
+	// Convert average gap time into sales per hour
+	if avgGapHours == 0 {
+		return 0
+	}
+	return 1 / avgGapHours
 }
 
 func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) (*ProfitInfo, error) {
@@ -569,7 +585,7 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 	// Calculate other variables and a "profit score"
 	profitMargin := bestSale.Value - cheapestMethod.Cost
 
-	salesPerHour := math.Max(p.salesPerHour(sales, 7), 0.005)
+	salesPerHour := math.Max(p.salesPerHour(sales, 7), 0.0001)
 	adjustedProfit := float64(profitMargin) * salesPerHour
 	competitionFactor := 1.0 / math.Max(1, float64(len(listingsOnPlayerWorld)))
 	profitScore := math.Round((adjustedProfit * competitionFactor) / cheapestMethod.EffortFactor)

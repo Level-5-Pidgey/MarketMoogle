@@ -195,19 +195,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 			want: &ObtainInfo{
 				ItemsRequired: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id:               2,
-							MarketProhibited: false,
-							ObtainMethods: &[]ExchangeMethod{
-								GilExchange{
-									TokenExchange: TokenExchange{
-										Value:    500,
-										Quantity: 1,
-									},
-									NpcName: "NPC",
-								},
-							},
-						},
+						ItemId:   2,
 						Quantity: 1,
 						Server:   2,
 					},
@@ -292,18 +280,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 			want: &ObtainInfo{
 				ItemsRequired: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 3,
-							ObtainMethods: &[]ExchangeMethod{
-								GilExchange{
-									TokenExchange: TokenExchange{
-										Value:    5,
-										Quantity: 1,
-									},
-									NpcName: "NPC",
-								},
-							},
-						},
+						ItemId:   3,
 						Quantity: 6,
 						Server:   1,
 					},
@@ -369,25 +346,12 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 			want: &ObtainInfo{
 				ItemsRequired: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 2,
-						},
+						ItemId:   2,
 						Quantity: 3,
 						Server:   2,
 					},
 					{
-						Item: &Item{
-							Id: 3,
-							ObtainMethods: &[]ExchangeMethod{
-								GilExchange{
-									TokenExchange: TokenExchange{
-										Value:    250,
-										Quantity: 1,
-									},
-									NpcName: "NPC",
-								},
-							},
-						},
+						ItemId:   3,
 						Quantity: 2,
 						Server:   1,
 					},
@@ -482,19 +446,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 			want: &ObtainInfo{
 				ItemsRequired: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id:               1,
-							MarketProhibited: true,
-							ObtainMethods: &[]ExchangeMethod{
-								GilExchange{
-									TokenExchange: TokenExchange{
-										Value:    500,
-										Quantity: 1,
-									},
-									NpcName: "NPC",
-								},
-							},
-						},
+						ItemId:   1,
 						Quantity: 1,
 						Server:   1,
 					},
@@ -533,19 +485,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 			want: &ObtainInfo{
 				ItemsRequired: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id:               1,
-							MarketProhibited: true,
-							ObtainMethods: &[]ExchangeMethod{
-								GcSealExchange{
-									TokenExchange: TokenExchange{
-										Value:    200,
-										Quantity: 1,
-									},
-									RankRequired: 4,
-								},
-							},
-						},
+						ItemId:   1,
 						Quantity: 1,
 						Server:   1,
 					},
@@ -666,26 +606,13 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 			want: &ObtainInfo{
 				ItemsRequired: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 2,
-							ObtainMethods: &[]ExchangeMethod{
-								GilExchange{
-									TokenExchange: TokenExchange{
-										Value:    2500,
-										Quantity: 1,
-									},
-									NpcName: "Very expensive merchant",
-								},
-							},
-						},
+						ItemId:   2,
 						Quantity: 1,
 						Server:   3,
 						BuyFrom:  "",
 					},
 					{
-						Item: &Item{
-							Id: 3,
-						},
+						ItemId:   3,
 						Quantity: 1,
 						Server:   1,
 						BuyFrom:  "",
@@ -695,7 +622,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				Cost:           70,
 				CostPerItem:    70,
 				ResultQuantity: 1,
-				EffortFactor:   0.5,
+				EffortFactor:   0.95,
 			},
 		},
 	}
@@ -749,18 +676,14 @@ func Test_combinePurchaseInfo(t *testing.T) {
 			args: args{
 				slice1: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 1,
-						},
+						ItemId:   1,
 						Quantity: 2,
 						Server:   1,
 					},
 				},
 				slice2: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 1,
-						},
+						ItemId:   1,
 						Quantity: 3,
 						Server:   1,
 					},
@@ -768,9 +691,7 @@ func Test_combinePurchaseInfo(t *testing.T) {
 			},
 			want: []*PurchaseInfo{
 				{
-					Item: &Item{
-						Id: 1,
-					},
+					ItemId:   1,
 					Quantity: 5,
 					Server:   1,
 				},
@@ -781,32 +702,24 @@ func Test_combinePurchaseInfo(t *testing.T) {
 			args: args{
 				slice1: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 1,
-						},
+						ItemId:   1,
 						Quantity: 5,
 						Server:   1,
 					},
 					{
-						Item: &Item{
-							Id: 2,
-						},
+						ItemId:   2,
 						Quantity: 2,
 						Server:   2,
 					},
 				},
 				slice2: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 1,
-						},
+						ItemId:   1,
 						Quantity: 5,
 						Server:   1,
 					},
 					{
-						Item: &Item{
-							Id: 3,
-						},
+						ItemId:   3,
 						Quantity: 1,
 						Server:   2,
 					},
@@ -814,23 +727,17 @@ func Test_combinePurchaseInfo(t *testing.T) {
 			},
 			want: []*PurchaseInfo{
 				{
-					Item: &Item{
-						Id: 1,
-					},
+					ItemId:   1,
 					Quantity: 10,
 					Server:   1,
 				},
 				{
-					Item: &Item{
-						Id: 2,
-					},
+					ItemId:   2,
 					Quantity: 2,
 					Server:   2,
 				},
 				{
-					Item: &Item{
-						Id: 3,
-					},
+					ItemId:   3,
 					Quantity: 1,
 					Server:   2,
 				},
@@ -849,9 +756,7 @@ func Test_combinePurchaseInfo(t *testing.T) {
 			args: args{
 				slice1: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 1,
-						},
+						ItemId:   1,
 						Quantity: 2,
 						Server:   1,
 					},
@@ -860,9 +765,7 @@ func Test_combinePurchaseInfo(t *testing.T) {
 			},
 			want: []*PurchaseInfo{
 				{
-					Item: &Item{
-						Id: 1,
-					},
+					ItemId:   1,
 					Quantity: 2,
 					Server:   1,
 				},
@@ -873,18 +776,14 @@ func Test_combinePurchaseInfo(t *testing.T) {
 			args: args{
 				slice1: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 1,
-						},
+						ItemId:   1,
 						Quantity: 2,
 						Server:   1,
 					},
 				},
 				slice2: []*PurchaseInfo{
 					{
-						Item: &Item{
-							Id: 1,
-						},
+						ItemId:   1,
 						Quantity: 3,
 						Server:   2,
 					},
@@ -892,16 +791,12 @@ func Test_combinePurchaseInfo(t *testing.T) {
 			},
 			want: []*PurchaseInfo{
 				{
-					Item: &Item{
-						Id: 1,
-					},
+					ItemId:   1,
 					Quantity: 2,
 					Server:   1,
 				},
 				{
-					Item: &Item{
-						Id: 1,
-					},
+					ItemId:   1,
 					Quantity: 3,
 					Server:   2,
 				},

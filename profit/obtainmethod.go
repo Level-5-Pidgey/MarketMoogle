@@ -2,7 +2,7 @@ package profitCalc
 
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
-	"github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"reflect"
 	"slices"
 )
@@ -19,7 +19,7 @@ type ExchangeMethod interface {
 	GetEffortFactor() float64
 }
 
-func getObtainMethods(item *domain.Item, collection *datacollection.DataCollection) (*[]ExchangeMethod, error) {
+func getObtainMethods(item *readertype.Item, collection *datacollection.DataCollection) (*[]ExchangeMethod, error) {
 	scripShopItems := *collection.GcScripShopItem
 	gatheringItems := *collection.GatheringItems
 
@@ -68,7 +68,7 @@ func getObtainMethods(item *domain.Item, collection *datacollection.DataCollecti
 }
 
 func getGatheringInfo(
-	gatheringItem domain.GatheringItem, dataCollection *datacollection.DataCollection,
+	gatheringItem *readertype.GatheringItem, dataCollection *datacollection.DataCollection,
 ) *GatheringInfo {
 	gatheringLevel := 0
 	gatheringStars := 0
@@ -87,7 +87,7 @@ func getGatheringInfo(
 }
 
 func getGatheringPointsForItem(
-	dataCollection *datacollection.DataCollection, gatheringItem domain.GatheringItem,
+	dataCollection *datacollection.DataCollection, gatheringItem *readertype.GatheringItem,
 ) []GatheringPoint {
 	gatheringDataCollection := dataCollection.GatheringDataCollection
 	gatheringPointBases := *gatheringDataCollection.GatheringPointBases
@@ -109,7 +109,7 @@ func getGatheringPointsForItem(
 					placeToGather := createPlaceName(
 						&dataCollection.PlaceDataCollection,
 						gPoint,
-						&gatheringPointBase,
+						gatheringPointBase,
 						gatheringType,
 					)
 
@@ -137,8 +137,8 @@ func getGatheringPointsForItem(
 
 func createPlaceName(
 	placeData *datacollection.PlaceDataCollection,
-	gPoint domain.GatheringPoint,
-	gatheringPointBase *domain.GatheringPointBase,
+	gPoint *readertype.GatheringPoint,
+	gatheringPointBase *readertype.GatheringPointBase,
 	gatheringType string,
 ) GatheringPoint {
 	regionName := ""

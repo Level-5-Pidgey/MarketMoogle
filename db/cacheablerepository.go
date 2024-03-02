@@ -6,9 +6,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/domain"
 	"log"
-	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/pgxpool"
@@ -25,17 +25,14 @@ const (
 type CacheableRepository struct {
 	DbPool *pgxpool.Pool
 
-	// TODO store a relation of worlds on datacenter
-	regionInfo *map[int]domain.GameRegion
+	dataCenters *map[int]readertype.DataCenter
 
-	reverseWorldMap *map[int]worldToRegionAndDc
+	worlds *map[int]readertype.World
 }
 
-type worldToRegionAndDc struct {
-	regionId, dataCenterId int
-}
-
-func InitRepository(dsn string, worldInfo *map[int]domain.GameRegion) (*CacheableRepository, error) {
+func InitRepository(
+	dsn string, worlds *map[int]readertype.World, dataCenters *map[int]readertype.DataCenter,
+) (*CacheableRepository, error) {
 	repo := &CacheableRepository{}
 
 	// Connect then return repository
@@ -45,19 +42,8 @@ func InitRepository(dsn string, worldInfo *map[int]domain.GameRegion) (*Cacheabl
 		return nil, err
 	}
 
-	// Generate list of world ids to related region and datacenter
-	worldsToDcAndRegion := make(map[int]worldToRegionAndDc)
-	// Make reverse map from world to region or data center
-	for _, region := range *worldInfo {
-		for _, dataCenter := range region.DataCenters {
-			for _, world := range dataCenter.Worlds {
-				worldsToDcAndRegion[world.Id] = worldToRegionAndDc{region.Id, dataCenter.Id}
-			}
-		}
-	}
-
-	repo.reverseWorldMap = &worldsToDcAndRegion
-	repo.regionInfo = worldInfo
+	repo.dataCenters = dataCenters
+	repo.worlds = worlds
 
 	return repo, nil
 }
@@ -88,12 +74,12 @@ func (c *CacheableRepository) CreateListing(listing domain.Listing) (*domain.Lis
 			last_review_time = EXCLUDED.last_review_time
 		RETURNING listing_id`
 
-	listingWorldRelation := (*c.reverseWorldMap)[listing.WorldId]
+	serverInfo := (*c.worlds)[listing.WorldId]
 
 	_, err := c.DbPool.Exec(
 		ctx, query,
 		listing.UniversalisId, listing.ItemId,
-		listingWorldRelation.regionId, listingWorldRelation.dataCenterId,
+		serverInfo.RegionId, serverInfo.DataCenterId,
 		listing.WorldId, listing.PricePer,
 		listing.Quantity, listing.Total,
 		listing.IsHighQuality, listing.RetainerName,
@@ -140,12 +126,12 @@ func (c *CacheableRepository) CreateListings(listings *[]domain.Listing) error {
 			last_review_time = EXCLUDED.last_review_time
 		RETURNING listing_id`
 
-		listingWorldRelation := (*c.reverseWorldMap)[listing.WorldId]
+		listingWorldRelation := (*c.worlds)[listing.WorldId]
 
 		_ = batch.Queue(
 			query,
 			listing.UniversalisId, listing.ItemId,
-			listingWorldRelation.regionId, listingWorldRelation.dataCenterId,
+			listingWorldRelation.RegionId, listingWorldRelation.DataCenterId,
 			listing.WorldId, listing.PricePer,
 			listing.Quantity, listing.Total,
 			listing.IsHighQuality, listing.RetainerName,
@@ -252,7 +238,7 @@ func (c *CacheableRepository) CreateSale(sale domain.Sale) (*domain.Sale, error)
 	defer cancel()
 
 	query := `
-		INSERT INTO sales 
+		INSERT INTO sales
 			(item_id, world_id, 
 			 price_per_unit, quantity, 
 			 total_price, is_high_quality, 
@@ -337,14 +323,14 @@ func (c *CacheableRepository) CreateSales(sales *[]domain.Sale) error {
 	return nil
 }
 
-func (c *CacheableRepository) DeleteSaleById(saleUniversalisId int) error {
+func (c *CacheableRepository) DeleteSaleById(saleId int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	query := `DELETE FROM sales WHERE universalis_listing_id = $1`
+	query := `DELETE FROM sales WHERE sales_id = $1`
 
 	_, err := c.DbPool.Exec(
-		ctx, query, saleUniversalisId,
+		ctx, query, saleId,
 	)
 
 	if err != nil {
@@ -454,15 +440,8 @@ func (c *CacheableRepository) CreatePartitions() error {
 func (c *CacheableRepository) createListingPartitionsForDc(
 	batch *pgx.Batch,
 ) {
-	dataCenters := make(map[int]string)
-	for _, regionInfo := range *c.regionInfo {
-		for _, dataCenter := range regionInfo.DataCenters {
-			dataCenters[dataCenter.Id] = strings.ToLower(dataCenter.Name)
-		}
-	}
-
-	for dcId, dcName := range dataCenters {
-		partitionName := fmt.Sprintf("listings_%s", dcName)
+	for dcId, dataCenter := range *c.dataCenters {
+		partitionName := fmt.Sprintf("listings_%s", dataCenter.Name)
 
 		partitionQuery := fmt.Sprintf(
 			`CREATE TABLE IF NOT EXISTS %s PARTITION OF listings FOR VALUES IN (%d)`,
@@ -571,7 +550,7 @@ func (c *CacheableRepository) GetListingsByItemAndWorldId(itemId, worldId int) (
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	query := `SELECT * FROM listings WHERE item_id = $1 AND world_id = $2 ORDER BY total_price ASC LIMIT 100`
+	query := `SELECT * FROM listings WHERE item_id = $1 AND world_id = $2 ORDER BY total_price LIMIT 100`
 
 	rows, err := c.DbPool.Query(ctx, query, itemId, worldId)
 	if err != nil {
@@ -590,7 +569,7 @@ func (c *CacheableRepository) GetListingsForItemOnDataCenter(itemId, dataCenterI
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	query := `SELECT * FROM listings WHERE item_id = $1 AND data_center_id = $2 ORDER BY total_price ASC LIMIT 100`
+	query := `SELECT * FROM listings WHERE item_id = $1 AND data_center_id = $2 ORDER BY total_price LIMIT 100`
 
 	rows, err := c.DbPool.Query(ctx, query, itemId, dataCenterId)
 	if err != nil {
@@ -646,12 +625,15 @@ func (c *CacheableRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId i
 }
 
 func getWorldsOnDc(c *CacheableRepository, dataCenterId int) *pgtype.Array[int] {
-	var worldsOnDc []int
-	for _, region := range *c.regionInfo {
-		if dataCenter, ok := region.DataCenters[dataCenterId]; ok {
-			for _, world := range dataCenter.Worlds {
-				worldsOnDc = append(worldsOnDc, world.Id)
-			}
+	// The smallest data center currently has 4 worlds on it, and the largest has 8
+	worldsOnDc := make([]int, 4, 8)
+	for _, world := range *c.worlds {
+		if len(worldsOnDc) == cap(worldsOnDc) {
+			break
+		}
+
+		if world.DataCenterId == dataCenterId {
+			worldsOnDc = append(worldsOnDc, world.Id)
 		}
 	}
 

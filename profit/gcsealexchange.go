@@ -1,7 +1,7 @@
 package profitCalc
 
 import (
-	csvType "github.com/level-5-pidgey/MarketMoogle/domain"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"math"
 )
 
@@ -30,7 +30,7 @@ func (gcSealExchange GcSealExchange) GetEffortFactor() float64 {
 	return 0.9
 }
 
-func calculateSealValue(item *csvType.Item) int {
+func calculateSealValue(item *readertype.Item) int {
 	if item.Rarity <= 1 || item.ItemLevel == 0 {
 		return 0
 	}

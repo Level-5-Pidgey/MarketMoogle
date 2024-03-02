@@ -1,13 +1,11 @@
 package datacollection
 
-import (
-	"github.com/level-5-pidgey/MarketMoogle/domain"
-)
+import "github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 
 type GatheringDataCollection struct {
-	GatheringItems      *map[int]domain.GatheringItem
-	GatheringPointBases *map[int]domain.GatheringPointBase
-	GatheringItemLevels *map[int]domain.GatheringItemLevel
-	GatheringTypes      *map[int]domain.GatheringType
-	GatheringPoints     *map[int][]domain.GatheringPoint
+	GatheringItems      *map[int]*readertype.GatheringItem
+	GatheringPointBases *map[int]*readertype.GatheringPointBase
+	GatheringItemLevels *map[int]*readertype.GatheringItemLevel
+	GatheringTypes      *map[int]*readertype.GatheringType
+	GatheringPoints     *map[int][]*readertype.GatheringPoint
 }
