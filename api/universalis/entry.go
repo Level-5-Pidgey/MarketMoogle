@@ -63,7 +63,7 @@ func (entry *Entry) ConvertToDbSales() *[]db.Sale {
 
 		saleTime := time.Unix(sale.Timestamp, 0)
 
-		if saleTime.Year() < twoYearsAgo.Year() {
+		if saleTime.Year() <= twoYearsAgo.Year() {
 			continue
 		}
 

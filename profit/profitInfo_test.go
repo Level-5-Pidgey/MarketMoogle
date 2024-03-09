@@ -1,6 +1,7 @@
 package profitCalc
 
 import (
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/db"
 	"reflect"
 	"testing"
@@ -192,18 +193,20 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				recipeItems: nil,
 			},
 			want: &ObtainInfo{
-				ItemsRequired: []*PurchaseInfo{
-					{
-						ItemId:   2,
-						Quantity: 1,
-						Server:   2,
+				ShoppingCart: ShoppingCart{
+					ItemsToBuy: []ShoppingItem{
+						ShoppingListing{
+							ItemId:   2,
+							Quantity: 1,
+							worldId:  2,
+							CostPer:  100,
+						},
 					},
+					itemsRequired: map[int]int{2: 1},
 				},
-				ObtainMethod:   "Market",
-				Cost:           100,
-				CostPerItem:    100,
-				ResultQuantity: 1,
-				EffortFactor:   1.05,
+				ObtainMethod: "Market",
+				Quantity:     1,
+				EffortFactor: 1.05,
 			},
 		},
 		{
@@ -215,7 +218,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					ObtainMethods: &[]ExchangeMethod{
 						GilExchange{
 							TokenExchange: TokenExchange{
-								Value:    50,
+								Value:    75,
 								Quantity: 1,
 							},
 							NpcName: "Expensive vendor",
@@ -225,7 +228,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					CraftingRecipes: &[]RecipeInfo{
 						{
 							Yield:       1,
-							CraftType:   "CARPENTER",
+							JobRequired: readertype.JobCarpenter,
 							RecipeLevel: 90,
 							RecipeIngredients: []RecipeIngredients{
 								{
@@ -244,6 +247,10 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				playerServer: &PlayerInfo{
 					HomeServer: 1,
 					DataCenter: 1,
+					JobLevels: map[readertype.Job]int{
+						readertype.JobCarpenter: 90,
+						readertype.JobAlchemist: 90,
+					},
 				},
 				recipeItems: []*Item{
 					{
@@ -251,7 +258,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						CraftingRecipes: &[]RecipeInfo{
 							{
 								Yield:       1,
-								CraftType:   "ALCHEMIST",
+								JobRequired: readertype.JobAlchemist,
 								RecipeLevel: 90,
 								RecipeIngredients: []RecipeIngredients{
 									{
@@ -277,22 +284,24 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				},
 			},
 			want: &ObtainInfo{
-				ItemsRequired: []*PurchaseInfo{
-					{
-						ItemId:   3,
-						Quantity: 6,
-						Server:   1,
+				ShoppingCart: ShoppingCart{
+					ItemsToBuy: []ShoppingItem{
+						LocalItem{
+							ItemId:       3,
+							Quantity:     6,
+							ObtainedFrom: "NPC",
+							CostPer:      5,
+						},
 					},
+					itemsRequired: map[int]int{3: 6},
 				},
-				ObtainMethod:   "CARPENTER",
-				Cost:           30,
-				CostPerItem:    30,
-				ResultQuantity: 1,
-				EffortFactor:   1.0,
+				ObtainMethod: "Craft with Carpenter",
+				Quantity:     1,
+				EffortFactor: 1.0,
 			},
 		},
 		{
-			name: "Item with recipe that has ingredients bought from market track quantity correctly",
+			name: "Item with recipe that has ingredients bought from market track Quantity correctly",
 			args: args{
 				item: &Item{
 					Id:               1,
@@ -301,7 +310,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					CraftingRecipes: &[]RecipeInfo{
 						{
 							Yield:       1,
-							CraftType:   "CULINARIAN",
+							JobRequired: readertype.JobCulinarian,
 							RecipeLevel: 90,
 							RecipeIngredients: []RecipeIngredients{
 								{
@@ -323,6 +332,9 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				playerServer: &PlayerInfo{
 					HomeServer: 1,
 					DataCenter: 1,
+					JobLevels: map[readertype.Job]int{
+						readertype.JobCulinarian: 90,
+					},
 				},
 				recipeItems: []*Item{
 					{
@@ -343,23 +355,29 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				},
 			},
 			want: &ObtainInfo{
-				ItemsRequired: []*PurchaseInfo{
-					{
-						ItemId:   2,
-						Quantity: 3,
-						Server:   2,
+				ShoppingCart: ShoppingCart{
+					ItemsToBuy: []ShoppingItem{
+						ShoppingListing{
+							ItemId:   2,
+							Quantity: 3,
+							worldId:  2,
+							CostPer:  501,
+						},
+						LocalItem{
+							ItemId:       3,
+							Quantity:     2,
+							ObtainedFrom: "NPC",
+							CostPer:      250,
+						},
 					},
-					{
-						ItemId:   3,
-						Quantity: 2,
-						Server:   1,
+					itemsRequired: map[int]int{
+						2: 2,
+						3: 2,
 					},
 				},
-				ObtainMethod:   "CULINARIAN",
-				Cost:           1502,
-				CostPerItem:    1502,
-				ResultQuantity: 1,
-				EffortFactor:   1.0,
+				ObtainMethod: "Craft with Culinarian",
+				Quantity:     1,
+				EffortFactor: 1.0,
 			},
 		},
 		{
@@ -373,7 +391,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					CraftingRecipes: &[]RecipeInfo{
 						{
 							Yield:       1,
-							CraftType:   "CARPENTER",
+							JobRequired: readertype.JobCarpenter,
 							RecipeLevel: 90,
 							RecipeIngredients: []RecipeIngredients{
 								{
@@ -392,6 +410,10 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				playerServer: &PlayerInfo{
 					HomeServer: 1,
 					DataCenter: 1,
+					JobLevels: map[readertype.Job]int{
+						readertype.JobCarpenter: 90,
+						readertype.JobAlchemist: 90,
+					},
 				},
 				recipeItems: []*Item{
 					{
@@ -399,7 +421,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						CraftingRecipes: &[]RecipeInfo{
 							{
 								Yield:       1,
-								CraftType:   "ALCHEMIST",
+								JobRequired: readertype.JobAlchemist,
 								RecipeLevel: 90,
 								RecipeIngredients: []RecipeIngredients{
 									{
@@ -443,18 +465,22 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				recipeItems: nil,
 			},
 			want: &ObtainInfo{
-				ItemsRequired: []*PurchaseInfo{
-					{
-						ItemId:   1,
-						Quantity: 1,
-						Server:   1,
+				ShoppingCart: ShoppingCart{
+					ItemsToBuy: []ShoppingItem{
+						LocalItem{
+							ItemId:       1,
+							Quantity:     1,
+							ObtainedFrom: "NPC",
+							CostPer:      500,
+						},
+					},
+					itemsRequired: map[int]int{
+						1: 1,
 					},
 				},
-				ObtainMethod:   "Buy with Gil",
-				Cost:           500,
-				CostPerItem:    500,
-				ResultQuantity: 1,
-				EffortFactor:   0.85,
+				ObtainMethod: "Buy with Gil",
+				Quantity:     1,
+				EffortFactor: 0.85,
 			},
 		},
 		{
@@ -477,23 +503,27 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				playerServer: &PlayerInfo{
 					HomeServer:       1,
 					DataCenter:       1,
-					GrandCompanyRank: 5,
+					GrandCompanyRank: readertype.SergeantThirdClass,
 				},
 				recipeItems: nil,
 			},
 			want: &ObtainInfo{
-				ItemsRequired: []*PurchaseInfo{
-					{
-						ItemId:   1,
-						Quantity: 1,
-						Server:   1,
+				ShoppingCart: ShoppingCart{
+					ItemsToBuy: []ShoppingItem{
+						LocalItem{
+							ItemId:       1,
+							Quantity:     1,
+							ObtainedFrom: "NPC",
+							CostPer:      200,
+						},
+					},
+					itemsRequired: map[int]int{
+						1: 1,
 					},
 				},
-				ObtainMethod:   "Grand Company Seal",
-				Cost:           200,
-				CostPerItem:    200,
-				ResultQuantity: 1,
-				EffortFactor:   0.9,
+				ObtainMethod: "Grand Company Seal",
+				Quantity:     1,
+				EffortFactor: 0.9,
 			},
 		},
 		{
@@ -508,7 +538,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 								Value:    200,
 								Quantity: 1,
 							},
-							RankRequired: 4,
+							RankRequired: readertype.PrivateSecondClass,
 						},
 						GilExchange{
 							TokenExchange: TokenExchange{
@@ -520,8 +550,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					},
 					CraftingRecipes: &[]RecipeInfo{
 						{
-							Yield:     1,
-							CraftType: "WEAVER",
+							Yield:       1,
+							JobRequired: readertype.JobWeaver,
 							RecipeIngredients: []RecipeIngredients{
 								{
 									ItemId:   2,
@@ -546,7 +576,10 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				playerServer: &PlayerInfo{
 					HomeServer:       1,
 					DataCenter:       1,
-					GrandCompanyRank: 3,
+					GrandCompanyRank: readertype.PrivateThirdClass,
+					JobLevels: map[readertype.Job]int{
+						readertype.JobWeaver: 90,
+					},
 				},
 				recipeItems: []*Item{
 					{
@@ -570,8 +603,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						},
 						CraftingRecipes: &[]RecipeInfo{
 							{
-								Yield:     1,
-								CraftType: "WEAVER",
+								Yield:       1,
+								JobRequired: readertype.JobWeaver,
 								RecipeIngredients: []RecipeIngredients{
 									{
 										ItemId:   2,
@@ -603,25 +636,29 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				},
 			},
 			want: &ObtainInfo{
-				ItemsRequired: []*PurchaseInfo{
-					{
-						ItemId:   2,
-						Quantity: 1,
-						Server:   3,
-						BuyFrom:  "",
+				ShoppingCart: ShoppingCart{
+					ItemsToBuy: []ShoppingItem{
+						LocalItem{
+							ItemId:       2,
+							Quantity:     1,
+							ObtainedFrom: "NPC",
+							CostPer:      2500,
+						},
+						ShoppingListing{
+							ItemId:   3,
+							Quantity: 1,
+							worldId:  1,
+							CostPer:  20,
+						},
 					},
-					{
-						ItemId:   3,
-						Quantity: 1,
-						Server:   1,
-						BuyFrom:  "",
+					itemsRequired: map[int]int{
+						2: 1,
+						3: 1,
 					},
 				},
-				ObtainMethod:   "WEAVER",
-				Cost:           70,
-				CostPerItem:    70,
-				ResultQuantity: 1,
-				EffortFactor:   0.95,
+				ObtainMethod: "Craft with Weaver",
+				Quantity:     1,
+				EffortFactor: 0.95,
 			},
 		},
 	}
@@ -831,7 +868,7 @@ func TestProfitCalculator_getIngredientsForRecipe(t *testing.T) {
 				numRequired: 1,
 				recipe: &RecipeInfo{
 					Yield:             1,
-					CraftType:         "CARPENTER",
+					JobRequired:       readertype.JobCarpenter,
 					RecipeLevel:       90,
 					RecipeIngredients: []RecipeIngredients{},
 				},
@@ -920,7 +957,7 @@ func TestProfitCalculator_getIngredientsForRecipe(t *testing.T) {
 			},
 		},
 		{
-			name: "adds quantity to the same item as expected",
+			name: "adds Quantity to the same item as expected",
 			args: args{
 				numRequired: 1,
 				recipe: &RecipeInfo{

@@ -23,7 +23,7 @@ type Item struct {
 	// SearchCategory       string
 	// SearchCategoryIconId int
 	StackSize        int
-	Jobs             string
+	Jobs             *[]readertype.Job
 	MarketProhibited bool
 	CanBeTraded      bool
 	DropsFromDungeon bool
@@ -51,7 +51,11 @@ func CreateFromCsvData(csvItem *readertype.Item, dataCollection *datacollection.
 
 	uiCatgeory := uiCategories[csvItem.UiCategory]
 	// searchCategory := searchCategories[csvItem.SearchCategory]
-	jobs := classJobCategories[csvItem.ClassJobCategory].JobCategory
+
+	var jobs *[]readertype.Job
+	if category, ok := classJobCategories[csvItem.ClassJobCategory]; ok {
+		jobs = &category.JobsInCategory
+	}
 
 	var result = Item{
 		Id: csvItem.Id,

@@ -100,7 +100,7 @@ func CreateDataCollection() (*DataCollection, error) {
 		csv.UngroupedXivCsvReader[readertype.GatheringItemLevel]{
 			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.GatheringItemLevel]{
 				RowsToSkip: 4,
-				FileName:   "GatheringItemlevelConvertTable",
+				FileName:   "GatheringItemLevelConvertTable",
 			},
 		},
 		csv.UngroupedXivCsvReader[readertype.GatheringType]{

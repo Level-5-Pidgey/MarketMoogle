@@ -10,18 +10,8 @@ import (
 )
 
 type ProfitCalculator struct {
-	ItemMap *map[int]*Item
-	Db      db.Repository
-}
-
-type PlayerInfo struct {
-	// TODO add levels and gear to restrict options
-
-	HomeServer int
-
-	DataCenter int
-
-	GrandCompanyRank int
+	Items      *map[int]*Item
+	repository db.Repository
 }
 
 const (
@@ -30,8 +20,8 @@ const (
 
 func NewProfitCalculator(itemMap *map[int]*Item, repo db.Repository) *ProfitCalculator {
 	return &ProfitCalculator{
-		ItemMap: itemMap,
-		Db:      repo,
+		Items:      itemMap,
+		repository: repo,
 	}
 }
 
@@ -148,18 +138,34 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 }
 
 type ObtainInfo struct {
-	ItemsRequired []*PurchaseInfo
+	ShoppingCart ShoppingCart
 
 	// TODO expand this into an object (with a type enum and human readable value)
 	ObtainMethod string
 
-	Cost int
-
-	CostPerItem int
-
-	ResultQuantity int
+	Quantity int
 
 	EffortFactor float64
+}
+
+func (o *ObtainInfo) GetCost() int {
+	cost := 0
+	if o.ShoppingCart.itemsRequired == nil || o.ShoppingCart.ItemsToBuy == nil {
+		return cost
+	}
+
+	// Since the list of items you're buying might over-buy, we get the Quantity from the actual required item counts
+	for _, item := range o.ShoppingCart.ItemsToBuy {
+		if quantity, ok := o.ShoppingCart.itemsRequired[item.GetItemId()]; ok {
+			cost += item.GetCostPer() * quantity
+		}
+	}
+
+	return cost
+}
+
+func (o *ObtainInfo) GetCostPerItem() int {
+	return o.GetCost() / o.Quantity
 }
 
 type PurchaseInfo struct {
@@ -177,11 +183,11 @@ func isEasierToObtain(curr, new *ObtainInfo) bool {
 		return true
 	}
 
-	currEffortCost := float64(curr.Cost) * curr.EffortFactor
-	newEffortCost := float64(new.Cost) * new.EffortFactor
+	currEffortCost := float64(curr.GetCost()) * curr.EffortFactor
+	newEffortCost := float64(new.GetCost()) * new.EffortFactor
 
 	if currEffortCost == newEffortCost {
-		return len(new.ItemsRequired) < len(curr.ItemsRequired)
+		return len(new.ShoppingCart.itemsRequired) < len(curr.ShoppingCart.itemsRequired)
 	}
 
 	return newEffortCost < currEffortCost
@@ -193,7 +199,7 @@ func (p *ProfitCalculator) GetCostToObtain(
 	var cheapestMethod *ObtainInfo
 
 	if item.ObtainMethods != nil {
-		cheapestMethod = getNonMarketObtainMethod(item, numRequired, cheapestMethod, player)
+		cheapestMethod = nonMarketObtainMethod(item, numRequired, cheapestMethod, player)
 	}
 
 	if !item.MarketProhibited && listings != nil {
@@ -205,12 +211,12 @@ func (p *ProfitCalculator) GetCostToObtain(
 		}
 
 		if len(filteredListings) != 0 {
-			cheapestMethod = getMarketObtainMethod(item, cheapestMethod, numRequired, &filteredListings, player)
+			cheapestMethod = marketObtainMethod(item, cheapestMethod, numRequired, &filteredListings, player)
 		}
 	}
 
 	if item.CraftingRecipes != nil {
-		cheapestMethod = p.getCraftingObtainMethod(item, numRequired, cheapestMethod, player)
+		cheapestMethod = p.craftingObtainMethod(item, numRequired, cheapestMethod, player)
 	}
 
 	return cheapestMethod
@@ -225,7 +231,7 @@ func (p *ProfitCalculator) getIngredientsForRecipe(
 	}
 
 	for _, ingredient := range recipe.RecipeIngredients {
-		ingredientItem, ok := (*p.ItemMap)[ingredient.ItemId]
+		ingredientItem, ok := (*p.Items)[ingredient.ItemId]
 
 		if !ok {
 			continue
@@ -262,36 +268,44 @@ func (p *ProfitCalculator) getIngredientsForRecipe(
 	return itemsAndQuantities
 }
 
-func (p *ProfitCalculator) getCraftingObtainMethod(
+func (p *ProfitCalculator) craftingObtainMethod(
 	item *Item, numRequired int, cheapestMethod *ObtainInfo, player *PlayerInfo,
 ) *ObtainInfo {
 	for _, craftingRecipe := range *item.CraftingRecipes {
-		// Get all the possible ingredients needed for this recipe, recursively
-		itemsRequiredForRecipe := p.getIngredientsForRecipe(
-			nil,
-			numRequired/craftingRecipe.Yield,
-			&craftingRecipe,
-			true,
-		)
+		// Check if the player is capable of crafting this recipe
+		if jobLevel, ok := player.JobLevels[craftingRecipe.JobRequired]; ok {
+			if jobLevel < craftingRecipe.RecipeLevel {
+				continue
+			}
+		} else {
+			// If they don't have the job at all, skip as well
+			continue
+		}
 
 		recipeCost := ObtainInfo{
-			ItemsRequired:  []*PurchaseInfo{},
-			ResultQuantity: craftingRecipe.Yield,
-			EffortFactor:   recipeEffort(&craftingRecipe, item),
-			ObtainMethod:   craftingRecipe.CraftType, // TODO expand with type
+			ShoppingCart: ShoppingCart{
+				ItemsToBuy:    []ShoppingItem{},
+				itemsRequired: make(map[int]int),
+			},
+			Quantity:     craftingRecipe.Yield,
+			EffortFactor: recipeEffort(&craftingRecipe, item),
+			ObtainMethod: fmt.Sprintf("Craft with %s", craftingRecipe.JobRequired), // TODO expand with type
 		}
 
 		canCraft := true
-		for itemId, quantity := range *itemsRequiredForRecipe {
-			ingredientItem, ok := (*p.ItemMap)[itemId]
-
+		for _, ingredient := range craftingRecipe.RecipeIngredients {
+			ingredientItem, ok := (*p.Items)[ingredient.ItemId]
 			if !ok {
 				continue
 			}
 
 			var ingredientListings *[]*db.Listing = nil
 			if !ingredientItem.MarketProhibited {
-				ingredientResults, err := p.Db.GetListingsForItemOnDataCenter(ingredientItem.Id, player.DataCenter)
+				ingredientResults, err := p.repository.GetListingsForItemOnDataCenter(
+					ingredientItem.Id,
+					player.DataCenter,
+				)
+
 				ingredientListings = ingredientResults
 				if err != nil {
 					log.Printf(
@@ -301,33 +315,27 @@ func (p *ProfitCalculator) getCraftingObtainMethod(
 				}
 			}
 
-			ingredientCost := p.GetCostToObtain(
+			ingredientQuantity := (ingredient.Quantity*numRequired + craftingRecipe.Yield - 1) / craftingRecipe.Yield
+
+			// Get the best way to obtain this ingredient
+			ingredientObtain := p.GetCostToObtain(
 				ingredientItem,
-				quantity,
+				ingredientQuantity,
 				ingredientListings,
 				player,
 			)
 
-			if ingredientCost == nil {
+			// Automatically skip out of unobtainable or expensive ingredients
+			if ingredientObtain == nil || !isEasierToObtain(cheapestMethod, ingredientObtain) {
 				canCraft = false
 				break
 			}
 
-			recipeCost.ItemsRequired = append(
-				recipeCost.ItemsRequired,
-				ingredientCost.ItemsRequired...,
-			)
-			recipeCost.Cost += ingredientCost.Cost
-
-			if !isEasierToObtain(cheapestMethod, &recipeCost) {
-				canCraft = false
-				break
-			}
+			// Merge shopping carts together
+			recipeCost.ShoppingCart.mergeWith(ingredientObtain.ShoppingCart)
 		}
 
-		recipeCost.CostPerItem = recipeCost.Cost / craftingRecipe.Yield
-
-		if isEasierToObtain(cheapestMethod, &recipeCost) && canCraft {
+		if canCraft && isEasierToObtain(cheapestMethod, &recipeCost) {
 			cheapestMethod = &recipeCost
 		}
 	}
@@ -335,7 +343,7 @@ func (p *ProfitCalculator) getCraftingObtainMethod(
 	return cheapestMethod
 }
 
-func getMarketObtainMethod(
+func marketObtainMethod(
 	item *Item, cheapestMethod *ObtainInfo, numRequired int, listings *[]*db.Listing, player *PlayerInfo,
 ) *ObtainInfo {
 	sortListings := func(listings []*db.Listing) {
@@ -361,12 +369,15 @@ func getMarketObtainMethod(
 	sortListings(*listings)
 
 	purchasePlan := ObtainInfo{
-		ItemsRequired:  []*PurchaseInfo{},
-		ObtainMethod:   "Market",
-		Cost:           0,
-		CostPerItem:    0,
-		ResultQuantity: 0,
-		EffortFactor:   0.99,
+		ShoppingCart: ShoppingCart{
+			ItemsToBuy: []ShoppingItem{},
+			itemsRequired: map[int]int{
+				item.Id: numRequired,
+			},
+		},
+		ObtainMethod: "Market",
+		Quantity:     0,
+		EffortFactor: 0.99,
 	}
 
 	for _, listing := range *listings {
@@ -374,13 +385,18 @@ func getMarketObtainMethod(
 			break
 		}
 
+		// TODO check if this listing has already been bought in a parent call (cheapestMethod shopping cart contains this listing)
+
 		numRequired -= listing.Quantity
-		purchasePlan.ItemsRequired = append(
-			purchasePlan.ItemsRequired, &PurchaseInfo{
-				ItemId:   item.Id,
-				Quantity: listing.Quantity,
-				Server:   listing.WorldId,
-				BuyFrom:  listing.RetainerName,
+		purchasePlan.ShoppingCart.ItemsToBuy = append(
+			purchasePlan.ShoppingCart.ItemsToBuy,
+			ShoppingListing{
+				ItemId:       item.Id,
+				Quantity:     listing.Quantity,
+				RetainerName: listing.RetainerName,
+				listingId:    listing.UniversalisId,
+				worldId:      listing.WorldId,
+				CostPer:      listing.PricePer,
 			},
 		)
 
@@ -389,9 +405,8 @@ func getMarketObtainMethod(
 		} else {
 			purchasePlan.EffortFactor += 0.06
 		}
-		purchasePlan.Cost += listing.Total
-		purchasePlan.ResultQuantity += listing.Quantity
-		purchasePlan.CostPerItem = purchasePlan.Cost / purchasePlan.ResultQuantity
+
+		purchasePlan.Quantity += listing.Quantity
 	}
 
 	if isEasierToObtain(cheapestMethod, &purchasePlan) {
@@ -413,7 +428,7 @@ func calculateListingEffortCost(listing *db.Listing, playerServer int) float64 {
 	return math.Round(float64(listing.Total) * listingScore)
 }
 
-func getNonMarketObtainMethod(
+func nonMarketObtainMethod(
 	item *Item, numRequired int, cheapestMethod *ObtainInfo, player *PlayerInfo,
 ) *ObtainInfo {
 	for _, obtainMethod := range *item.ObtainMethods {
@@ -431,22 +446,25 @@ func getNonMarketObtainMethod(
 			numOfExchanges++
 			totalEffort *= 1.01
 		}
-		totalCost := numOfExchanges * obtainMethod.GetCost()
 		totalQuantity := numOfExchanges * obtainMethod.GetQuantity()
 
 		currentMethod := ObtainInfo{
-			ItemsRequired: []*PurchaseInfo{
-				{
-					ItemId:   item.Id,
-					Quantity: numOfExchanges,
-					Server:   player.HomeServer,
+			ShoppingCart: ShoppingCart{
+				ItemsToBuy: []ShoppingItem{
+					LocalItem{
+						ItemId:       item.Id,
+						Quantity:     totalQuantity,
+						ObtainedFrom: obtainMethod.GetObtainType(), // TODO add npc name here
+						CostPer:      obtainMethod.GetCostPerItem(),
+					},
+				},
+				itemsRequired: map[int]int{
+					item.Id: numRequired,
 				},
 			},
-			Cost:           totalCost,
-			CostPerItem:    totalCost / totalQuantity,
-			ResultQuantity: totalQuantity,
-			EffortFactor:   totalEffort,
-			ObtainMethod:   obtainMethod.GetObtainType(),
+			Quantity:     totalQuantity,
+			EffortFactor: totalEffort,
+			ObtainMethod: obtainMethod.GetObtainType(),
 		}
 
 		if isEasierToObtain(cheapestMethod, &currentMethod) {
@@ -550,7 +568,7 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 	var listings *[]*db.Listing = nil
 	var listingsOnPlayerWorld []*db.Listing
 	if !item.MarketProhibited {
-		ingredientResults, err := p.Db.GetListingsForItemOnDataCenter(item.Id, info.DataCenter)
+		ingredientResults, err := p.repository.GetListingsForItemOnDataCenter(item.Id, info.DataCenter)
 		listings = ingredientResults
 		if err != nil {
 			return nil, err
@@ -563,7 +581,7 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 		}
 	}
 
-	sales, err := p.Db.GetSalesByItemAndWorldId(item.Id, info.HomeServer)
+	sales, err := p.repository.GetSalesByItemAndWorldId(item.Id, info.HomeServer)
 	if err != nil {
 		return nil, err
 	}
@@ -575,14 +593,14 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 		return nil, nil
 	}
 
-	// Get cheapest method to obtain the item
+	// Get the cheapest method to obtain the item
 	cheapestMethod := p.GetCostToObtain(item, bestSale.Quantity, listings, info)
 	if cheapestMethod == nil {
 		return nil, nil
 	}
 
 	// Calculate other variables and a "profit score"
-	profitMargin := bestSale.Value - cheapestMethod.Cost
+	profitMargin := bestSale.Value - cheapestMethod.GetCost()
 
 	salesPerHour := math.Max(p.salesPerHour(sales, 7), 0.0001)
 	adjustedProfit := float64(profitMargin) * salesPerHour

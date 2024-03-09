@@ -7,7 +7,7 @@ import (
 
 type GcSealExchange struct {
 	TokenExchange
-	RankRequired int
+	RankRequired readertype.GrandCompanyRank
 }
 
 func (gcSealExchange GcSealExchange) GetObtainType() string {

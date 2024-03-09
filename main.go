@@ -506,14 +506,14 @@ func dialUp(repository db.Repository, wg *sync.WaitGroup, worldId int) {
 
 	ticker := time.NewTicker(pingPeriod)
 
-	defer func() {
+	/*defer func() {
 		ticker.Stop()
 		log.Printf("closed connection on worldId %d\n", worldId)
 		err := c.Close()
 		if err != nil {
 			return
 		}
-	}()
+	}()*/
 
 	for {
 		select {
@@ -537,6 +537,7 @@ func dialUp(repository db.Repository, wg *sync.WaitGroup, worldId int) {
 				websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
 			)
+			
 			if err != nil {
 				log.Println("write closed", err)
 				return

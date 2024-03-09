@@ -7,6 +7,7 @@ import (
 
 type RecipeInfo struct {
 	Yield                  int
+	JobRequired            readertype.Job
 	CraftType              string
 	RecipeLevel            int
 	SpecializationRequired bool
@@ -46,6 +47,7 @@ func getRecipes(item *readertype.Item, collection *datacollection.DataCollection
 		durability := 60
 		quality := 0
 		craftType := ""
+		job := readertype.JobNone
 
 		if level, ok := recipeLevels[recipe.RecipeLevelId]; ok {
 			recipeLevel = level.ClassJobLevel
@@ -59,11 +61,13 @@ func getRecipes(item *readertype.Item, collection *datacollection.DataCollection
 		}
 
 		if recipeCraftType, ok := craftTypes[recipe.CraftType]; ok {
+			job = recipeCraftType.Job
 			craftType = recipeCraftType.Name
 		}
 
 		recipeInfo := RecipeInfo{
 			Yield:                  recipe.Quantity,
+			JobRequired:            job,
 			CraftType:              craftType,
 			RecipeLevel:            recipeLevel,
 			SpecializationRequired: recipe.SpecializationRequired,

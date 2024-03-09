@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
@@ -8,6 +9,7 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/util"
 	"net/http"
 	"sort"
+	"sync"
 )
 
 type Controller struct {
@@ -36,9 +38,23 @@ func (c Controller) GetProfitInfo(w http.ResponseWriter, r *http.Request) {
 	playerInfo := profitCalc.PlayerInfo{
 		HomeServer:       queryWorldId,
 		DataCenter:       dcId,
-		GrandCompanyRank: 99,
+		GrandCompanyRank: readertype.Captain,
+		JobLevels: map[readertype.Job]int{
+			readertype.JobCarpenter:     90,
+			readertype.JobBlacksmith:    90,
+			readertype.JobArmourer:      90,
+			readertype.JobGoldsmith:     90,
+			readertype.JobLeatherworker: 90,
+			readertype.JobWeaver:        90,
+			readertype.JobAlchemist:     90,
+			readertype.JobCulinarian:    90,
+			readertype.JobMiner:         90,
+			readertype.JobBotanist:      90,
+			readertype.JobFisher:        90,
+			readertype.JobPaladin:       90,
+		},
 	}
-	itemMap := *c.profitCalc.ItemMap
+	itemMap := *c.profitCalc.Items
 	item, ok := itemMap[itemId]
 
 	if !ok {
@@ -62,39 +78,104 @@ func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
 	worldId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
 	dcId := c.getDcIdFromWorldId(worldId)
 
-	result := make([]*profitCalc.ProfitInfo, 0)
-	for _, item := range *c.profitCalc.ItemMap {
+	playerInfo := profitCalc.PlayerInfo{
+		HomeServer:       worldId,
+		DataCenter:       dcId,
+		GrandCompanyRank: readertype.Captain,
+		JobLevels: map[readertype.Job]int{
+			readertype.JobCarpenter:     90,
+			readertype.JobBlacksmith:    90,
+			readertype.JobArmourer:      90,
+			readertype.JobGoldsmith:     90,
+			readertype.JobLeatherworker: 90,
+			readertype.JobWeaver:        90,
+			readertype.JobAlchemist:     90,
+			readertype.JobCulinarian:    90,
+			readertype.JobMiner:         90,
+			readertype.JobBotanist:      90,
+			readertype.JobFisher:        90,
+			readertype.JobPaladin:       90,
+		},
+	}
+
+	var wg sync.WaitGroup
+	resultsChan := make(chan *profitCalc.ProfitInfo)
+	errorsChan := make(chan error)
+
+	for _, item := range *c.profitCalc.Items {
 		if item.MarketProhibited {
 			continue
 		}
 
-		playerInfo := profitCalc.PlayerInfo{
-			HomeServer:       worldId,
-			DataCenter:       dcId,
-			GrandCompanyRank: 99,
+		wg.Add(1)
+
+		go func(item *profitCalc.Item, playerInfo *profitCalc.PlayerInfo) {
+			defer wg.Done()
+
+			profitInfo, err := c.profitCalc.CalculateProfitForItem(item, playerInfo)
+
+			if err != nil {
+				errorsChan <- err
+			} else {
+				if profitInfo == nil || profitInfo.SaleMethod.ValuePer > 1000000 {
+					return
+				}
+
+				resultsChan <- profitInfo
+			}
+		}(item, &playerInfo)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+		close(errorsChan)
+	}()
+
+	result := make([]*profitCalc.ProfitInfo, 0)
+	errors := make([]error, 0)
+
+	for {
+		select {
+		case resultInfo, ok := <-resultsChan:
+			if !ok {
+				resultsChan = nil
+			} else {
+				result = append(result, resultInfo)
+			}
+
+		case err, ok := <-errorsChan:
+			if !ok {
+				errorsChan = nil
+			} else {
+				errors = append(errors, err)
+			}
 		}
 
-		profitInfo, err := c.profitCalc.CalculateProfitForItem(item, &playerInfo)
-		if err != nil {
-			util.ErrorJSON(w, err, http.StatusInternalServerError)
-			return
+		if resultsChan == nil && errorsChan == nil {
+			break
+		}
+	}
+
+	if len(errors) > 0 {
+		fmt.Printf("Multiple (%d) errors occurred: ", len(errors))
+		for index, err := range errors {
+			fmt.Printf("Error #%d: %v\n", index+1, err)
 		}
 
-		if profitInfo == nil {
-			continue
-		}
+		util.ErrorJSON(
+			w,
+			fmt.Errorf("multiple (%d) errors occurred", len(errors)),
+			http.StatusInternalServerError,
+		)
 
-		if profitInfo.SaleMethod.ValuePer > 1000000 {
-			continue
-		}
-
-		result = append(result, profitInfo)
+		return
 	}
 
 	sort.Slice(
 		result, func(i, j int) bool {
 			if result[i].ProfitScore == result[j].ProfitScore {
-				return result[i].ObtainMethod.Cost > result[j].ObtainMethod.Cost
+				return result[i].ObtainMethod.GetCost() > result[j].ObtainMethod.GetCost()
 			}
 
 			return result[i].ProfitScore > result[j].ProfitScore

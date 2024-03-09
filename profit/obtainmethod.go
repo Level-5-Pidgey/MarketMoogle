@@ -48,7 +48,7 @@ func getObtainMethods(item *readertype.Item, collection *datacollection.DataColl
 					Value:    gcScripShopItem.AmountRequired,
 					Quantity: 1,
 				},
-				RankRequired: gcScripShopItem.GrandCompanyRankRequired,
+				RankRequired: readertype.GrandCompanyRank(gcScripShopItem.GrandCompanyRankRequired),
 			},
 		)
 	}
