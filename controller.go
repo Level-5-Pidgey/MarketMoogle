@@ -7,6 +7,7 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	profitCalc "github.com/level-5-pidgey/MarketMoogle/profit"
 	"github.com/level-5-pidgey/MarketMoogle/util"
+	"log"
 	"net/http"
 	"sort"
 	"sync"
@@ -30,7 +31,7 @@ func (c Controller) getDcIdFromWorldId(queryWorldId int) int {
 	return dcId
 }
 
-func (c Controller) GetProfitInfo(w http.ResponseWriter, r *http.Request) {
+func (c Controller) GetItemProfit(w http.ResponseWriter, r *http.Request) {
 	itemId := util.SafeStringToInt(chi.URLParam(r, "itemId"))
 	queryWorldId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
 	dcId := c.getDcIdFromWorldId(queryWorldId)
@@ -74,7 +75,7 @@ func (c Controller) GetProfitInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
+func (c Controller) GetAllItemProfit(w http.ResponseWriter, r *http.Request) {
 	worldId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
 	dcId := c.getDcIdFromWorldId(worldId)
 
@@ -116,6 +117,7 @@ func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
 
 			if err != nil {
 				errorsChan <- err
+				return
 			} else {
 				if profitInfo == nil || profitInfo.SaleMethod.ValuePer > 1000000 {
 					return
@@ -185,6 +187,46 @@ func (c Controller) GetAllProfitInfo(w http.ResponseWriter, r *http.Request) {
 	top25 := result[0:25]
 
 	err := util.WriteJSON(w, http.StatusOK, top25)
+	if err != nil {
+		util.ErrorJSON(w, err, http.StatusNotFound)
+	}
+}
+
+func (c Controller) GetCurrencyProfit(w http.ResponseWriter, r *http.Request) {
+	serverId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
+	currency := chi.URLParam(r, "currency")
+	dcId := c.getDcIdFromWorldId(serverId)
+
+	playerInfo := profitCalc.PlayerInfo{
+		HomeServer:       serverId,
+		DataCenter:       dcId,
+		GrandCompanyRank: readertype.Captain,
+		JobLevels: map[readertype.Job]int{
+			readertype.JobCarpenter:     90,
+			readertype.JobBlacksmith:    90,
+			readertype.JobArmourer:      90,
+			readertype.JobGoldsmith:     90,
+			readertype.JobLeatherworker: 90,
+			readertype.JobWeaver:        90,
+			readertype.JobAlchemist:     90,
+			readertype.JobCulinarian:    90,
+			readertype.JobMiner:         90,
+			readertype.JobBotanist:      90,
+			readertype.JobFisher:        90,
+			readertype.JobPaladin:       90,
+		},
+	}
+
+	sale, item, err := c.profitCalc.GetGilValueForCurrency(currency, &playerInfo)
+
+	if err != nil {
+		util.ErrorJSON(w, err, http.StatusNotFound)
+		return
+	}
+
+	log.Printf("item is %v\n", item)
+
+	err = util.WriteJSON(w, http.StatusOK, sale)
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
 	}

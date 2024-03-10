@@ -130,8 +130,39 @@ func main() {
 	}
 
 	profitItems := make(map[int]*profitCalc.Item)
+	itemsByObtainInfo := make(map[string]map[int]*profitCalc.Item)
+	itemsByExchangeMethod := make(map[string]map[int]*profitCalc.Item)
+
 	for _, csvItem := range *collection.Items {
 		item, err := profitCalc.CreateFromCsvData(csvItem, collection)
+
+		if item.ObtainMethods != nil {
+			for _, obtainInfo := range *item.ObtainMethods {
+				key := reflect.TypeOf(obtainInfo).String()
+
+				if itemsByObtainInfo[key] == nil {
+					itemsByObtainInfo[key] = make(map[int]*profitCalc.Item)
+				}
+
+				itemsByObtainInfo[key][csvItem.Id] = item
+			}
+		}
+
+		if item.ExchangeMethods != nil {
+			for _, exchangeMethod := range *item.ExchangeMethods {
+				key := reflect.TypeOf(exchangeMethod).String()
+
+				if key == "profitCalc.GcSealExchange" && item.DropsFromDungeon {
+					continue
+				}
+
+				if itemsByExchangeMethod[key] == nil {
+					itemsByExchangeMethod[key] = make(map[int]*profitCalc.Item)
+				}
+
+				itemsByExchangeMethod[key][csvItem.Id] = item
+			}
+		}
 
 		if err != nil {
 			log.Fatalf("Error creating item %d: %s", csvItem.Id, err)
@@ -175,7 +206,7 @@ func main() {
 
 	// Start up API server
 	go func() {
-		err = app.Serve(&profitItems, collection, worlds, repository)
+		err = app.Serve(&profitItems, &itemsByObtainInfo, &itemsByExchangeMethod, collection, worlds, repository)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -537,7 +568,7 @@ func dialUp(repository db.Repository, wg *sync.WaitGroup, worldId int) {
 				websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
 			)
-			
+
 			if err != nil {
 				log.Println("write closed", err)
 				return
@@ -588,14 +619,18 @@ type Application struct {
 }
 
 func (app *Application) Serve(
-	items *map[int]*profitCalc.Item, collection *dc.DataCollection, worlds *map[int]*readertype.World,
+	items *map[int]*profitCalc.Item,
+	itemsByObtainInfo *map[string]map[int]*profitCalc.Item,
+	itemsByExchangeMethod *map[string]map[int]*profitCalc.Item,
+	collection *dc.DataCollection,
+	worlds *map[int]*readertype.World,
 	db db.Repository,
 ) error {
 	port := app.Config.Port
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
-		Handler: Routes(items, collection, worlds, db),
+		Handler: Routes(items, itemsByObtainInfo, itemsByExchangeMethod, collection, worlds, db),
 	}
 
 	return srv.ListenAndServe()

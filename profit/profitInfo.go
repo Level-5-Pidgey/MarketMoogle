@@ -1,6 +1,7 @@
 package profitCalc
 
 import (
+	"errors"
 	"fmt"
 	"github.com/level-5-pidgey/MarketMoogle/db"
 	"log"
@@ -10,22 +11,33 @@ import (
 )
 
 type ProfitCalculator struct {
-	Items      *map[int]*Item
-	repository db.Repository
+	Items                    *map[int]*Item
+	currencyByObtainMethod   *map[string]map[int]*Item
+	currencyByExchangeMethod *map[string]map[int]*Item
+	repository               db.Repository
 }
 
 const (
 	maxLevel = 90
 )
 
-func NewProfitCalculator(itemMap *map[int]*Item, repo db.Repository) *ProfitCalculator {
+func NewProfitCalculator(
+	itemMap *map[int]*Item,
+	currencyByObtainMethod *map[string]map[int]*Item,
+	currencyByExchangeMethod *map[string]map[int]*Item,
+	repo db.Repository,
+) *ProfitCalculator {
 	return &ProfitCalculator{
-		Items:      itemMap,
-		repository: repo,
+		currencyByObtainMethod:   currencyByObtainMethod,
+		currencyByExchangeMethod: currencyByExchangeMethod,
+		Items:                    itemMap,
+		repository:               repo,
 	}
 }
 
 type SaleMethod struct {
+	Item *Item `json:"-"` // Don't serialize the item to be sold as part of an API response.
+
 	// TODO add the currency you get for exchanging this item
 
 	// What's the method to sell this item?
@@ -39,26 +51,25 @@ type SaleMethod struct {
 }
 
 // GetBestSaleMethod
-// Get the method of exchange that returns the most gil (or currency) on this item.
+// Get the method of exchange that returns the most gil on this item.
 // Includes selling this item on the marketboard
 func (p *ProfitCalculator) GetBestSaleMethod(
-	item *Item, listings *[]*db.Listing, sales *[]*db.Sale, player *PlayerInfo,
+	item *Item, listings *[]*db.Listing, sales *[]*db.Sale, player *PlayerInfo, gilOnly bool,
 ) *SaleMethod {
 	var bestSale *SaleMethod
 
 	if listings != nil {
-		derefListings := *listings
 		// If there's any market listings for this item then see what it's currently being sold for
-		if (len(derefListings)) > 0 {
-			for _, listing := range derefListings {
+		if (len(*listings)) > 0 {
+			for _, listing := range *listings {
 				// Only return values on the player's server (as that's the only place they can sell it)
 				if listing.WorldId != player.HomeServer {
 					continue
 				}
 
 				listingSale := SaleMethod{
-					ExchangeType: "Marketboard", // TODO put player's world name here
-					Value:        listing.Total - listing.Quantity,
+					ExchangeType: "Marketboard",                    // TODO put player's world name here
+					Value:        listing.Total - listing.Quantity, // 1 gil undercut per item
 					Quantity:     listing.Quantity,
 					ValuePer:     listing.PricePer - 1, // 1 gil undercut
 				}
@@ -137,7 +148,7 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 	return bestSale
 }
 
-type ObtainInfo struct {
+type ObtainMethod struct {
 	ShoppingCart ShoppingCart
 
 	// TODO expand this into an object (with a type enum and human readable value)
@@ -148,7 +159,7 @@ type ObtainInfo struct {
 	EffortFactor float64
 }
 
-func (o *ObtainInfo) GetCost() int {
+func (o *ObtainMethod) GetCost() int {
 	cost := 0
 	if o.ShoppingCart.itemsRequired == nil || o.ShoppingCart.ItemsToBuy == nil {
 		return cost
@@ -164,7 +175,7 @@ func (o *ObtainInfo) GetCost() int {
 	return cost
 }
 
-func (o *ObtainInfo) GetCostPerItem() int {
+func (o *ObtainMethod) GetCostPerItem() int {
 	return o.GetCost() / o.Quantity
 }
 
@@ -178,7 +189,7 @@ type PurchaseInfo struct {
 	BuyFrom string
 }
 
-func isEasierToObtain(curr, new *ObtainInfo) bool {
+func isEasierToObtain(curr, new *ObtainMethod) bool {
 	if curr == nil {
 		return true
 	}
@@ -193,10 +204,10 @@ func isEasierToObtain(curr, new *ObtainInfo) bool {
 	return newEffortCost < currEffortCost
 }
 
-func (p *ProfitCalculator) GetCostToObtain(
+func (p *ProfitCalculator) GetCheapestObtainMethod(
 	item *Item, numRequired int, listings *[]*db.Listing, player *PlayerInfo,
-) *ObtainInfo {
-	var cheapestMethod *ObtainInfo
+) *ObtainMethod {
+	var cheapestMethod *ObtainMethod
 
 	if item.ObtainMethods != nil {
 		cheapestMethod = nonMarketObtainMethod(item, numRequired, cheapestMethod, player)
@@ -269,8 +280,8 @@ func (p *ProfitCalculator) getIngredientsForRecipe(
 }
 
 func (p *ProfitCalculator) craftingObtainMethod(
-	item *Item, numRequired int, cheapestMethod *ObtainInfo, player *PlayerInfo,
-) *ObtainInfo {
+	item *Item, numRequired int, cheapestMethod *ObtainMethod, player *PlayerInfo,
+) *ObtainMethod {
 	for _, craftingRecipe := range *item.CraftingRecipes {
 		// Check if the player is capable of crafting this recipe
 		if jobLevel, ok := player.JobLevels[craftingRecipe.JobRequired]; ok {
@@ -282,7 +293,7 @@ func (p *ProfitCalculator) craftingObtainMethod(
 			continue
 		}
 
-		recipeCost := ObtainInfo{
+		recipeCost := ObtainMethod{
 			ShoppingCart: ShoppingCart{
 				ItemsToBuy:    []ShoppingItem{},
 				itemsRequired: make(map[int]int),
@@ -318,7 +329,7 @@ func (p *ProfitCalculator) craftingObtainMethod(
 			ingredientQuantity := (ingredient.Quantity*numRequired + craftingRecipe.Yield - 1) / craftingRecipe.Yield
 
 			// Get the best way to obtain this ingredient
-			ingredientObtain := p.GetCostToObtain(
+			ingredientObtain := p.GetCheapestObtainMethod(
 				ingredientItem,
 				ingredientQuantity,
 				ingredientListings,
@@ -344,8 +355,8 @@ func (p *ProfitCalculator) craftingObtainMethod(
 }
 
 func marketObtainMethod(
-	item *Item, cheapestMethod *ObtainInfo, numRequired int, listings *[]*db.Listing, player *PlayerInfo,
-) *ObtainInfo {
+	item *Item, cheapestMethod *ObtainMethod, numRequired int, listings *[]*db.Listing, player *PlayerInfo,
+) *ObtainMethod {
 	sortListings := func(listings []*db.Listing) {
 		sort.Slice(
 			listings, func(i, ii int) bool {
@@ -368,7 +379,7 @@ func marketObtainMethod(
 
 	sortListings(*listings)
 
-	purchasePlan := ObtainInfo{
+	purchasePlan := ObtainMethod{
 		ShoppingCart: ShoppingCart{
 			ItemsToBuy: []ShoppingItem{},
 			itemsRequired: map[int]int{
@@ -429,8 +440,8 @@ func calculateListingEffortCost(listing *db.Listing, playerServer int) float64 {
 }
 
 func nonMarketObtainMethod(
-	item *Item, numRequired int, cheapestMethod *ObtainInfo, player *PlayerInfo,
-) *ObtainInfo {
+	item *Item, numRequired int, cheapestMethod *ObtainMethod, player *PlayerInfo,
+) *ObtainMethod {
 	for _, obtainMethod := range *item.ObtainMethods {
 		// TODO use a type switch and calculate equivalent gil costs for currency exchanges
 		switch obtainMethod.(type) {
@@ -448,7 +459,7 @@ func nonMarketObtainMethod(
 		}
 		totalQuantity := numOfExchanges * obtainMethod.GetQuantity()
 
-		currentMethod := ObtainInfo{
+		currentMethod := ObtainMethod{
 			ShoppingCart: ShoppingCart{
 				ItemsToBuy: []ShoppingItem{
 					LocalItem{
@@ -523,7 +534,7 @@ func combinePurchaseInfo(slice1, slice2 []*PurchaseInfo) []*PurchaseInfo {
 
 type ProfitInfo struct {
 	ItemId       int
-	ObtainMethod *ObtainInfo
+	ObtainMethod *ObtainMethod
 	SaleMethod   *SaleMethod
 	ProfitScore  float64
 }
@@ -568,8 +579,8 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 	var listings *[]*db.Listing = nil
 	var listingsOnPlayerWorld []*db.Listing
 	if !item.MarketProhibited {
-		ingredientResults, err := p.repository.GetListingsForItemOnDataCenter(item.Id, info.DataCenter)
-		listings = ingredientResults
+		listingResults, err := p.repository.GetListingsForItemOnDataCenter(item.Id, info.DataCenter)
+		listings = listingResults
 		if err != nil {
 			return nil, err
 		}
@@ -587,14 +598,14 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 	}
 
 	// Get most value created when selling the item
-	bestSale := p.GetBestSaleMethod(item, listings, sales, info)
+	bestSale := p.GetBestSaleMethod(item, &listingsOnPlayerWorld, sales, info, false)
 	if bestSale == nil {
 		// Sometimes there's no way to sell this item, and that's okay. We will just return early
 		return nil, nil
 	}
 
 	// Get the cheapest method to obtain the item
-	cheapestMethod := p.GetCostToObtain(item, bestSale.Quantity, listings, info)
+	cheapestMethod := p.GetCheapestObtainMethod(item, bestSale.Quantity, listings, info)
 	if cheapestMethod == nil {
 		return nil, nil
 	}
@@ -614,4 +625,90 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 		SaleMethod:   bestSale,
 		ProfitScore:  profitScore,
 	}, nil
+}
+
+func (p *ProfitCalculator) GetGilValueForCurrency(currencyType string, info *PlayerInfo) (
+	*SaleMethod, *Item, error,
+) {
+	if p.currencyByObtainMethod == nil {
+		return nil, nil, errors.New("map of currencies by exchange method is nil")
+	}
+
+	itemsWithObtainMethod, ok := (*p.currencyByObtainMethod)[currencyType]
+	if !ok {
+		return nil, nil, errors.New("no exchange method found for currency")
+	}
+
+	var bestSale *SaleMethod
+	var bestItem *Item
+	for _, item := range itemsWithObtainMethod {
+		// Get the current price of this item on the market board
+		var listings *[]*db.Listing
+		if !item.MarketProhibited {
+			listingResults, err := p.repository.GetListingsByItemAndWorldId(item.Id, info.HomeServer)
+			listings = listingResults
+
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		sales, err := p.repository.GetSalesByItemAndWorldId(item.Id, info.HomeServer)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		itemSale := p.GetBestSaleMethod(item, listings, sales, info, true)
+
+		if itemSale == nil {
+			continue
+		}
+
+		if bestSale == nil || itemSale.ValuePer > bestSale.ValuePer {
+			bestSale = itemSale
+			bestItem = item
+		}
+	}
+
+	return bestSale, bestItem, nil
+}
+
+func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(currencyType string, info *PlayerInfo) (
+	*ObtainMethod, error,
+) {
+	if p.currencyByObtainMethod == nil {
+		return nil, errors.New("map of currencies by obtain method is nil")
+	}
+
+	itemsWithObtainMethod, ok := (*p.currencyByObtainMethod)[currencyType]
+	if !ok {
+		return nil, errors.New("no exchange method found for currency")
+	}
+
+	var bestMethod *ObtainMethod
+	for _, item := range itemsWithObtainMethod {
+		var listings *[]*db.Listing = nil
+		var listingsOnPlayerWorld []*db.Listing
+		if !item.MarketProhibited {
+			listingResults, err := p.repository.GetListingsForItemOnDataCenter(item.Id, info.DataCenter)
+			listings = listingResults
+			if err != nil {
+				return nil, err
+			}
+
+			for _, listing := range *listings {
+				if listing.WorldId == info.HomeServer {
+					listingsOnPlayerWorld = append(listingsOnPlayerWorld, listing)
+				}
+			}
+		}
+
+		itemMethod := p.GetCheapestObtainMethod(item, 1, listings, info)
+
+		if itemMethod == nil || itemMethod.GetCostPerItem() < bestMethod.GetCostPerItem() {
+			bestMethod = itemMethod
+		}
+	}
+
+	return bestMethod, nil
 }

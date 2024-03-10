@@ -12,7 +12,11 @@ import (
 )
 
 func Routes(
-	items *map[int]*profitCalc.Item, collection *dc.DataCollection, worlds *map[int]*readertype.World,
+	items *map[int]*profitCalc.Item,
+	itemsByObtainInfo *map[string]map[int]*profitCalc.Item,
+	itemsByExchangeMethod *map[string]map[int]*profitCalc.Item,
+	collection *dc.DataCollection,
+	worlds *map[int]*readertype.World,
 	db db.Repository,
 ) http.Handler {
 	router := chi.NewRouter()
@@ -34,12 +38,13 @@ func Routes(
 	controller := Controller{
 		dataCollection: collection,
 		worlds:         worlds,
-		profitCalc:     profitCalc.NewProfitCalculator(items, db),
+		profitCalc:     profitCalc.NewProfitCalculator(items, itemsByObtainInfo, itemsByExchangeMethod, db),
 	}
 
 	// Routes here
-	router.Get("/api/v1/server/{worldId}/items/{itemId}/profit", controller.GetProfitInfo)
-	router.Get("/api/v1/server/{worldId}/items/profit", controller.GetAllProfitInfo)
+	router.Get("/api/v1/server/{worldId}/items/{itemId}/profit", controller.GetItemProfit)
+	router.Get("/api/v1/server/{worldId}/items/profit", controller.GetAllItemProfit)
+	router.Get("/api/v1/server/{worldId}/currency/{currency}/profit", controller.GetCurrencyProfit)
 
 	return router
 }

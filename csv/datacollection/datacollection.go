@@ -178,9 +178,6 @@ func CreateDataCollection() (*DataCollection, error) {
 		gatheringTypes       map[int]*readertype.GatheringType
 		placeNames           map[int]*readertype.PlaceName
 		territoryTypes       map[int]*readertype.TerritoryType
-
-		// Misc
-		currencies map[int]*readertype.Item
 	)
 
 	results := make([]csvResults, 0)
@@ -236,7 +233,6 @@ func CreateDataCollection() (*DataCollection, error) {
 		},
 		ItemInfoDataCollection: ItemInfoDataCollection{
 			Items:                &items,
-			Currencies:           &currencies,
 			ClassJobCategories:   &classJobCategories,
 			ItemUiCategories:     &itemUiCategories,
 			ItemSearchCategories: &itemSearchCategories,
@@ -273,7 +269,6 @@ func CreateDataCollection() (*DataCollection, error) {
 				}
 
 				items = itemMap
-				currencies = currencyMap
 			}
 		case "SecretRecipeBook":
 			if data, ok := result.data.(map[int]*readertype.RecipeBook); ok {

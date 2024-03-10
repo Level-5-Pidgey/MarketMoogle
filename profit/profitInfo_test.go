@@ -129,6 +129,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 					tt.args.listings,
 					tt.args.sales,
 					tt.args.playerServer,
+					false,
 				); !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("GetBestSaleMethod() = %v, want %v", got, tt.want)
 				}
@@ -147,7 +148,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *ObtainInfo
+		want *ObtainMethod
 	}{
 		{
 			name: "Item with no obtain method or market listings safely returns nothing",
@@ -192,7 +193,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				},
 				recipeItems: nil,
 			},
-			want: &ObtainInfo{
+			want: &ObtainMethod{
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
 						ShoppingListing{
@@ -283,7 +284,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					},
 				},
 			},
-			want: &ObtainInfo{
+			want: &ObtainMethod{
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
 						LocalItem{
@@ -354,7 +355,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					},
 				},
 			},
-			want: &ObtainInfo{
+			want: &ObtainMethod{
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
 						ShoppingListing{
@@ -464,7 +465,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				},
 				recipeItems: nil,
 			},
-			want: &ObtainInfo{
+			want: &ObtainMethod{
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
 						LocalItem{
@@ -507,7 +508,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				},
 				recipeItems: nil,
 			},
-			want: &ObtainInfo{
+			want: &ObtainMethod{
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
 						LocalItem{
@@ -635,7 +636,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					},
 				},
 			},
-			want: &ObtainInfo{
+			want: &ObtainMethod{
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
 						LocalItem{
@@ -677,20 +678,20 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						_, err := repo.CreateListing(*listing)
 
 						if err != nil {
-							t.Errorf("Error creating mock listing in GetCostToObtain: %v", err)
+							t.Errorf("Error creating mock listing in GetCheapestObtainMethod: %v", err)
 						}
 					}
 				}
 
 				p := NewProfitCalculator(&itemMap, repo)
 
-				if got := p.GetCostToObtain(
+				if got := p.GetCheapestObtainMethod(
 					tt.args.item,
 					1,
 					tt.args.listings,
 					tt.args.playerServer,
 				); !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("GetCostToObtain() = %v, want %v", got, tt.want)
+					t.Errorf("GetCheapestObtainMethod() = %v, want %v", got, tt.want)
 				}
 			},
 		)

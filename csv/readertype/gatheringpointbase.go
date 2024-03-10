@@ -10,7 +10,7 @@ type GatheringPointBase struct {
 }
 
 func (g GatheringPointBase) CreateFromCsvRow(record []string) (*GatheringPointBase, error) {
-	itemIds := make([]int, 0)
+	itemIds := make([]int, 0, 7)
 
 	// Row index 3-10 contain items that can drop from this gathering point
 	for i := 3; i < 10; i++ {

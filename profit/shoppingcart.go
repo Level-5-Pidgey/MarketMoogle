@@ -1,6 +1,9 @@
 package profitCalc
 
-import "strconv"
+import (
+	"encoding/json"
+	"strconv"
+)
 
 type ShoppingListing struct {
 	ItemId       int
@@ -79,6 +82,10 @@ type ShoppingCart struct {
 	ItemsToBuy []ShoppingItem
 
 	itemsRequired map[int]int
+}
+
+func (currentCart *ShoppingCart) MarshalJSON() ([]byte, error) {
+	return json.Marshal(currentCart.ItemsToBuy)
 }
 
 func (currentCart *ShoppingCart) mergeWith(other ShoppingCart) {
