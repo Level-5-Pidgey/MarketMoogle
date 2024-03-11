@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -508,7 +509,7 @@ func (p *ProfitCalculator) nonMarketObtainMethod(
 		totalEffort := obtainMethod.GetEffortFactor()
 		for (numOfExchanges * obtainMethod.GetQuantity()) < numRequired {
 			numOfExchanges++
-			totalEffort *= 1.05
+			totalEffort *= 1.01
 		}
 		totalQuantity := numOfExchanges * obtainMethod.GetQuantity()
 		adjustedCost := int(math.Round(float64(obtainMethod.GetCost()) * costMultiplier))
@@ -717,56 +718,81 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange ExchangeType, info *
 		return 0, nil
 	}
 
-	bestScore := 0.0
-	bestGilPerCurrency := 0.0
-	// TODO consider making this concurrent
+	wg := sync.WaitGroup{}
+	type scorePerCurrency struct {
+		score       float64
+		perCurrency float64
+	}
+	scoreChan := make(chan scorePerCurrency)
+
 	for _, item := range itemsWithObtainMethod {
-		filteredSales := make([]*db.Sale, 0, 100)
-		filteredListings := make([]*db.Listing, 0, 100)
-		for _, sale := range *sales {
-			if sale.ItemId != item.Id {
-				continue
+		wg.Add(1)
+
+		go func(item *Item, listings *[]*db.Listing, sales *[]*db.Sale, info *PlayerInfo) {
+			defer wg.Done()
+
+			filteredSales := make([]*db.Sale, 0, 100)
+			filteredListings := make([]*db.Listing, 0, 100)
+			for _, sale := range *sales {
+				if sale.ItemId != item.Id {
+					continue
+				}
+
+				filteredSales = append(filteredSales, sale)
 			}
 
-			filteredSales = append(filteredSales, sale)
-		}
+			for _, listing := range *listings {
+				if listing.ItemId != item.Id {
+					continue
+				}
 
-		for _, listing := range *listings {
-			if listing.ItemId != item.Id {
-				continue
+				filteredListings = append(filteredListings, listing)
 			}
 
-			filteredListings = append(filteredListings, listing)
-		}
+			itemSale := p.GetBestSaleMethod(item, &filteredListings, &filteredSales, info, true)
 
-		itemSale := p.GetBestSaleMethod(item, &filteredListings, &filteredSales, info, true)
-
-		if itemSale == nil {
-			continue
-		}
-
-		cost := 0
-		effortFactor := 1.0
-		adjustedQuantity := 1
-		for _, obtainMethod := range *item.ObtainMethods {
-			if obtainMethod.GetExchangeType() != exchange {
-				continue
+			if itemSale == nil {
+				return
 			}
 
-			cost = obtainMethod.GetCost()
-			effortFactor = obtainMethod.GetEffortFactor()
-			adjustedQuantity = obtainMethod.GetCostPerItem()
-		}
+			cost := 0
+			effortFactor := 1.0
+			adjustedQuantity := 1
+			for _, obtainMethod := range *item.ObtainMethods {
+				if obtainMethod.GetExchangeType() != exchange {
+					continue
+				}
 
-		currentScore := calculateProfitScore(itemSale, cost, effortFactor)
+				cost = obtainMethod.GetCost()
+				effortFactor = obtainMethod.GetEffortFactor()
+				adjustedQuantity = obtainMethod.GetCostPerItem()
 
-		if currentScore > bestScore {
-			bestScore = currentScore
-			bestGilPerCurrency = float64(itemSale.ValuePer) / float64(adjustedQuantity)
+				break
+			}
+
+			currentScore := calculateProfitScore(itemSale, cost, effortFactor)
+			scoreChan <- scorePerCurrency{
+				score:       currentScore,
+				perCurrency: float64(itemSale.ValuePer) / float64(adjustedQuantity),
+			}
+		}(item, listings, sales, info)
+	}
+
+	go func() {
+		wg.Wait()
+		close(scoreChan)
+	}()
+
+	bestCost := 0.0
+	bestScore := 0.0
+	for result := range scoreChan {
+		if result.score > bestScore {
+			bestScore = result.score
+			bestCost = result.perCurrency
 		}
 	}
 
-	return bestGilPerCurrency, nil
+	return bestCost, nil
 }
 
 func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(exchangeType ExchangeType, info *PlayerInfo) (
@@ -781,9 +807,6 @@ func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(exchangeType ExchangeT
 		return nil, errors.New("no exchangeType method found for exchangeType")
 	}
 
-	var bestMethod *ObtainMethod
-	bestCostPerToken := 0.0
-
 	itemIds := make([]int, 0, len(itemsWithExchangeMethod))
 	for _, item := range itemsWithExchangeMethod {
 		itemIds = append(itemIds, item.Id)
@@ -794,25 +817,54 @@ func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(exchangeType ExchangeT
 		return nil, err
 	}
 
+	wg := sync.WaitGroup{}
+	type obtainWithCost struct {
+		method *ObtainMethod
+		cost   float64
+	}
+	obtainChan := make(chan obtainWithCost)
+
 	for _, item := range itemsWithExchangeMethod {
-		itemMethod := p.GetCheapestObtainMethod(item, 1, listingResults, info)
+		wg.Add(1)
 
-		if itemMethod == nil {
-			continue
-		}
+		go func(item *Item, listings *[]*db.Listing, info *PlayerInfo) {
+			defer wg.Done()
 
-		costPerToken := 0.0
-		for _, exchangeMethod := range *item.ExchangeMethods {
-			if exchangeMethod.GetExchangeType() != exchangeType {
-				continue
+			itemMethod := p.GetCheapestObtainMethod(item, 1, listingResults, info)
+
+			if itemMethod == nil {
+				return
 			}
 
-			costPerToken = float64(itemMethod.GetCost()) / float64(exchangeMethod.GetCost())
-		}
+			costPerToken := 0.0
+			for _, exchangeMethod := range *item.ExchangeMethods {
+				if exchangeMethod.GetExchangeType() != exchangeType {
+					continue
+				}
 
-		if bestMethod == nil || costPerToken < bestCostPerToken {
-			bestMethod = itemMethod
-			bestCostPerToken = costPerToken
+				costPerToken = float64(itemMethod.GetCost()) / float64(exchangeMethod.GetCost())
+
+				break
+			}
+
+			obtainChan <- obtainWithCost{
+				method: itemMethod,
+				cost:   costPerToken,
+			}
+		}(item, listingResults, info)
+	}
+
+	go func() {
+		wg.Wait()
+		close(obtainChan)
+	}()
+
+	bestCost := 0.0
+	var bestMethod *ObtainMethod
+	for result := range obtainChan {
+		if bestMethod == nil || result.cost < bestCost {
+			bestCost = result.cost
+			bestMethod = result.method
 		}
 	}
 
