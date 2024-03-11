@@ -13,8 +13,8 @@ import (
 
 func Routes(
 	items *map[int]*profitCalc.Item,
-	itemsByObtainInfo *map[string]map[int]*profitCalc.Item,
-	itemsByExchangeMethod *map[string]map[int]*profitCalc.Item,
+	itemsByObtainInfo *map[profitCalc.ExchangeType]map[int]*profitCalc.Item,
+	itemsByExchangeMethod *map[profitCalc.ExchangeType]map[int]*profitCalc.Item,
 	collection *dc.DataCollection,
 	worlds *map[int]*readertype.World,
 	db db.Repository,
@@ -44,7 +44,8 @@ func Routes(
 	// Routes here
 	router.Get("/api/v1/server/{worldId}/items/{itemId}/profit", controller.GetItemProfit)
 	router.Get("/api/v1/server/{worldId}/items/profit", controller.GetAllItemProfit)
-	router.Get("/api/v1/server/{worldId}/currency/{currency}/profit", controller.GetCurrencyProfit)
+	router.Get("/api/v1/server/{worldId}/currency/{currency}/value", controller.GetCurrencyProfit)
+	router.Get("/api/v1/server/{worldId}/currency/{currency}/obtain", controller.GetCostToAcquireCurrency)
 
 	return router
 }

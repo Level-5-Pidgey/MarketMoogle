@@ -5,7 +5,11 @@ type GilExchange struct {
 	NpcName string
 }
 
-func (gilExchange GilExchange) GetObtainType() string {
+func (gilExchange GilExchange) GetExchangeType() ExchangeType {
+	return ExchangeTypeGil
+}
+
+func (gilExchange GilExchange) GetObtainDescription() string {
 	return "Buy with Gil"
 }
 

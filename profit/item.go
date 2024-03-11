@@ -73,6 +73,7 @@ func CreateFromCsvData(csvItem *readertype.Item, dataCollection *datacollection.
 		CanBeHq:          csvItem.CanBeHq,
 		MarketProhibited: csvItem.SearchCategory == 0,
 		IsCollectable:    csvItem.IsCollectable,
+		ItemLevel:        csvItem.ItemLevel,
 		// IsGlamour:            csvItem.IsGlamour,
 	}
 
@@ -109,7 +110,10 @@ func getExchangeMethods(
 		)
 	}
 
-	if csvItem.Rarity > 1 && csvItem.ItemLevel > 0 {
+	if csvItem.Rarity > 1 &&
+		csvItem.ItemLevel > 1 &&
+		csvItem.EquipLevel > 1 &&
+		csvItem.StackSize == 1 {
 		exchangeMethods = append(
 			exchangeMethods,
 			GcSealExchange{

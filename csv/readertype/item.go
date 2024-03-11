@@ -11,6 +11,7 @@ type Item struct {
 	Name               string
 	Description        string
 	IconId             int
+	EquipLevel         int
 	ItemLevel          int
 	Rarity             int
 	UiCategory         int
@@ -36,6 +37,11 @@ func (i Item) isOldItem() bool {
 
 func (i Item) CreateFromCsvRow(record []string) (*Item, error) {
 	itemId := util.SafeStringToInt(record[0])
+
+	if itemId == 0 {
+		return nil, errors.New("invalid item id")
+	}
+
 	itemName := record[10]
 
 	if i.isOldItem() {
@@ -64,6 +70,7 @@ func (i Item) CreateFromCsvRow(record []string) (*Item, error) {
 		Description:        record[9],
 		IconId:             util.SafeStringToInt(record[11]),
 		ItemLevel:          util.SafeStringToInt(record[12]),
+		EquipLevel:         util.SafeStringToInt(record[41]),
 		Rarity:             util.SafeStringToInt(record[13]),
 		UiCategory:         util.SafeStringToInt(record[16]),
 		SearchCategory:     util.SafeStringToInt(record[17]),

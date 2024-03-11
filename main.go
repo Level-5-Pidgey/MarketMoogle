@@ -130,15 +130,15 @@ func main() {
 	}
 
 	profitItems := make(map[int]*profitCalc.Item)
-	itemsByObtainInfo := make(map[string]map[int]*profitCalc.Item)
-	itemsByExchangeMethod := make(map[string]map[int]*profitCalc.Item)
+	itemsByObtainInfo := make(map[profitCalc.ExchangeType]map[int]*profitCalc.Item)
+	itemsByExchangeMethod := make(map[profitCalc.ExchangeType]map[int]*profitCalc.Item)
 
 	for _, csvItem := range *collection.Items {
 		item, err := profitCalc.CreateFromCsvData(csvItem, collection)
 
 		if item.ObtainMethods != nil {
 			for _, obtainInfo := range *item.ObtainMethods {
-				key := reflect.TypeOf(obtainInfo).String()
+				key := obtainInfo.GetExchangeType()
 
 				if itemsByObtainInfo[key] == nil {
 					itemsByObtainInfo[key] = make(map[int]*profitCalc.Item)
@@ -150,9 +150,10 @@ func main() {
 
 		if item.ExchangeMethods != nil {
 			for _, exchangeMethod := range *item.ExchangeMethods {
-				key := reflect.TypeOf(exchangeMethod).String()
+				key := exchangeMethod.GetExchangeType()
 
-				if key == "profitCalc.GcSealExchange" && item.DropsFromDungeon {
+				// Don't include dungeon drops to reduce compute time
+				if key == profitCalc.ExchangeTypeGcSeal && item.DropsFromDungeon {
 					continue
 				}
 
@@ -620,8 +621,8 @@ type Application struct {
 
 func (app *Application) Serve(
 	items *map[int]*profitCalc.Item,
-	itemsByObtainInfo *map[string]map[int]*profitCalc.Item,
-	itemsByExchangeMethod *map[string]map[int]*profitCalc.Item,
+	itemsByObtainInfo *map[profitCalc.ExchangeType]map[int]*profitCalc.Item,
+	itemsByExchangeMethod *map[profitCalc.ExchangeType]map[int]*profitCalc.Item,
 	collection *dc.DataCollection,
 	worlds *map[int]*readertype.World,
 	db db.Repository,

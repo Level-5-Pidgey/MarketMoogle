@@ -1,5 +1,7 @@
 package readertype
 
+import "strings"
+
 type Job string
 
 const (
@@ -47,8 +49,8 @@ const (
 	JobPictomancer       = "PCT"
 )
 
-func (j Job) FromShortString(s string) Job {
-	switch s {
+func FromShortString(s string) Job {
+	switch strings.ToUpper(s) {
 	case "GLA":
 		return JobGladiator
 	case "PGL":

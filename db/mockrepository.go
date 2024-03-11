@@ -26,7 +26,7 @@ func (r *MockRepository) CreateListings(listings *[]Listing) error {
 	return nil
 }
 
-func (r *MockRepository) GetListingsByItemAndWorldId(itemId, worldId int) (*[]*Listing, error) {
+func (r *MockRepository) GetListingsForItemOnWorld(itemId, worldId int) (*[]*Listing, error) {
 	result := make([]*Listing, 0)
 	for _, listing := range r.listings {
 		if listing.ItemId == itemId && listing.WorldId == worldId {
@@ -43,6 +43,33 @@ func (r *MockRepository) GetListingsForItemOnDataCenter(itemId, dataCenterId int
 		// We're just gonna pretend that there's only 1 data center within tests
 		if listing.ItemId == itemId {
 			result = append(result, listing)
+		}
+	}
+
+	return &result, nil
+}
+
+func (r *MockRepository) GetListingsForItemsOnWorld(itemIds []int, worldId int) (*[]*Listing, error) {
+	result := make([]*Listing, 0)
+	for _, itemId := range itemIds {
+		for _, listing := range r.listings {
+			if listing.ItemId == itemId && listing.WorldId == worldId {
+				result = append(result, listing)
+			}
+		}
+	}
+
+	return &result, nil
+}
+
+func (r *MockRepository) GetListingsForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]*Listing, error) {
+	result := make([]*Listing, 0)
+	for _, itemId := range itemIds {
+		for _, listing := range r.listings {
+			// We're just gonna pretend that there's only 1 data center within tests
+			if listing.ItemId == itemId {
+				result = append(result, listing)
+			}
 		}
 	}
 
@@ -72,7 +99,7 @@ func (r *MockRepository) DeleteListings(universalisListingIds []string) error {
 
 // Market RecentHistory
 
-func (r *MockRepository) GetSalesByItemAndWorldId(itemId, worldId int) (*[]*Sale, error) {
+func (r *MockRepository) GetSalesForItemOnWorld(itemId, worldId int) (*[]*Sale, error) {
 	result := make([]*Sale, 0)
 	for _, sale := range r.sales {
 		if sale.ItemId == itemId && sale.WorldId == worldId {
@@ -89,6 +116,33 @@ func (r *MockRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (
 		// We're just gonna pretend that there's only 1 data center within tests
 		if sale.ItemId == itemId {
 			result = append(result, sale)
+		}
+	}
+
+	return &result, nil
+}
+
+func (r *MockRepository) GetSalesForItemsOnWorld(itemIds []int, worldId int) (*[]*Sale, error) {
+	result := make([]*Sale, 0)
+	for _, itemId := range itemIds {
+		for _, sale := range r.sales {
+			if sale.ItemId == itemId && sale.WorldId == worldId {
+				result = append(result, sale)
+			}
+		}
+	}
+
+	return &result, nil
+}
+
+func (r *MockRepository) GetSalesForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]*Sale, error) {
+	result := make([]*Sale, 0)
+	for _, itemId := range itemIds {
+		for _, sale := range r.sales {
+			// We're just gonna pretend that there's only 1 data center within tests
+			if sale.ItemId == itemId {
+				result = append(result, sale)
+			}
 		}
 	}
 

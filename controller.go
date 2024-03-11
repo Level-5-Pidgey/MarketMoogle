@@ -7,7 +7,6 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	profitCalc "github.com/level-5-pidgey/MarketMoogle/profit"
 	"github.com/level-5-pidgey/MarketMoogle/util"
-	"log"
 	"net/http"
 	"sort"
 	"sync"
@@ -217,16 +216,54 @@ func (c Controller) GetCurrencyProfit(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	sale, item, err := c.profitCalc.GetGilValueForCurrency(currency, &playerInfo)
+	exchangeType := profitCalc.FromString(currency)
+	value, err := c.profitCalc.GetSellValueForCurrency(exchangeType, &playerInfo)
 
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
 		return
 	}
 
-	log.Printf("item is %v\n", item)
+	err = util.WriteJSON(w, http.StatusOK, value)
+	if err != nil {
+		util.ErrorJSON(w, err, http.StatusNotFound)
+	}
+}
 
-	err = util.WriteJSON(w, http.StatusOK, sale)
+func (c Controller) GetCostToAcquireCurrency(w http.ResponseWriter, r *http.Request) {
+	serverId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
+	currency := chi.URLParam(r, "currency")
+	dcId := c.getDcIdFromWorldId(serverId)
+
+	playerInfo := profitCalc.PlayerInfo{
+		HomeServer:       serverId,
+		DataCenter:       dcId,
+		GrandCompanyRank: readertype.Captain,
+		JobLevels: map[readertype.Job]int{
+			readertype.JobCarpenter:     90,
+			readertype.JobBlacksmith:    90,
+			readertype.JobArmourer:      90,
+			readertype.JobGoldsmith:     90,
+			readertype.JobLeatherworker: 90,
+			readertype.JobWeaver:        90,
+			readertype.JobAlchemist:     90,
+			readertype.JobCulinarian:    90,
+			readertype.JobMiner:         90,
+			readertype.JobBotanist:      90,
+			readertype.JobFisher:        90,
+			readertype.JobPaladin:       90,
+		},
+	}
+
+	exchangeType := profitCalc.FromString(currency)
+	obtainMethod, err := c.profitCalc.GetCheapestWayToObtainCurrency(exchangeType, &playerInfo)
+
+	if err != nil {
+		util.ErrorJSON(w, err, http.StatusNotFound)
+		return
+	}
+
+	err = util.WriteJSON(w, http.StatusOK, obtainMethod)
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
 	}

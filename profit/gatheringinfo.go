@@ -14,7 +14,11 @@ type GatheringInfo struct {
 	IsHidden      bool
 }
 
-func (gatheringInfo GatheringInfo) GetObtainType() string {
+func (gatheringInfo GatheringInfo) GetExchangeType() ExchangeType {
+	return ExchangeTypeGathering
+}
+
+func (gatheringInfo GatheringInfo) GetObtainDescription() string {
 	var uniqueGatheringTypes []string
 
 	for _, point := range gatheringInfo.Points {

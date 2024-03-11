@@ -19,6 +19,7 @@ const (
 	dbTimeout      = 1 * time.Minute
 
 	ignorePriceValue = 250 * 1000000
+	retrievalLimit   = 100
 )
 
 type CacheableRepository struct {
@@ -545,13 +546,13 @@ func testConnection(pool *pgxpool.Pool) error {
 	return nil
 }
 
-func (c *CacheableRepository) GetListingsByItemAndWorldId(itemId, worldId int) (*[]*Listing, error) {
+func (c *CacheableRepository) GetListingsForItemOnWorld(itemId, worldId int) (*[]*Listing, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	query := `SELECT * FROM listings WHERE item_id = $1 AND world_id = $2 ORDER BY total_price LIMIT 100`
+	query := `SELECT * FROM listings WHERE item_id = $1 AND world_id = $2 ORDER BY total_price LIMIT $3`
 
-	rows, err := c.DbPool.Query(ctx, query, itemId, worldId)
+	rows, err := c.DbPool.Query(ctx, query, itemId, worldId, retrievalLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -568,9 +569,9 @@ func (c *CacheableRepository) GetListingsForItemOnDataCenter(itemId, dataCenterI
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	query := `SELECT * FROM listings WHERE item_id = $1 AND data_center_id = $2 ORDER BY total_price LIMIT 100`
+	query := `SELECT * FROM listings WHERE item_id = $1 AND data_center_id = $2 ORDER BY total_price LIMIT $3`
 
-	rows, err := c.DbPool.Query(ctx, query, itemId, dataCenterId)
+	rows, err := c.DbPool.Query(ctx, query, itemId, dataCenterId, retrievalLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -583,13 +584,59 @@ func (c *CacheableRepository) GetListingsForItemOnDataCenter(itemId, dataCenterI
 	return listings, nil
 }
 
-func (c *CacheableRepository) GetSalesByItemAndWorldId(itemId, worldId int) (*[]*Sale, error) {
+func (c *CacheableRepository) GetListingsForItemsOnWorld(itemIds []int, worldId int) (*[]*Listing, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	query := `SELECT * FROM sales WHERE item_id = $1 AND world_id = $2 ORDER BY sale_time DESC LIMIT 100`
+	if len(itemIds) == 0 {
+		return nil, nil
+	}
 
-	rows, err := c.DbPool.Query(ctx, query, itemId, worldId)
+	query := `SELECT * FROM listings WHERE item_id = ANY($1) AND world_id = $2 ORDER BY total_price LIMIT $3`
+
+	rows, err := c.DbPool.Query(ctx, query, itemIds, worldId, len(itemIds)*100)
+	if err != nil {
+		return nil, err
+	}
+
+	listings, err := extractListings(rows, err)
+	if err != nil {
+		return nil, err
+	}
+
+	return listings, nil
+}
+
+func (c *CacheableRepository) GetListingsForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]*Listing, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	if len(itemIds) == 0 {
+		return nil, nil
+	}
+
+	query := `SELECT * FROM listings WHERE item_id = ANY($1) AND data_center_id = $2 ORDER BY total_price LIMIT $3`
+
+	rows, err := c.DbPool.Query(ctx, query, itemIds, dataCenterId, len(itemIds)*100)
+	if err != nil {
+		return nil, err
+	}
+
+	listings, err := extractListings(rows, err)
+	if err != nil {
+		return nil, err
+	}
+
+	return listings, nil
+}
+
+func (c *CacheableRepository) GetSalesForItemOnWorld(itemId, worldId int) (*[]*Sale, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	query := `SELECT * FROM sales WHERE item_id = $1 AND world_id = $2 ORDER BY sale_time DESC LIMIT $3`
+
+	rows, err := c.DbPool.Query(ctx, query, itemId, worldId, retrievalLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -607,10 +654,48 @@ func (c *CacheableRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId i
 	defer cancel()
 
 	worldsOnDc := getWorldsOnDc(c, dataCenterId)
-
 	query := `SELECT * FROM sales WHERE item_id = $1 AND world_id = ANY($2) ORDER BY sale_time DESC LIMIT 100`
 
 	rows, err := c.DbPool.Query(ctx, query, itemId, worldsOnDc)
+	if err != nil {
+		return nil, err
+	}
+
+	sales, err := extractSales(rows, err)
+	if err != nil {
+		return nil, err
+	}
+
+	return sales, nil
+}
+
+func (c *CacheableRepository) GetSalesForItemsOnWorld(itemIds []int, worldId int) (*[]*Sale, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	query := `SELECT * FROM sales WHERE item_id = ANY($1) AND world_id = $2 ORDER BY sale_time DESC LIMIT $3`
+
+	rows, err := c.DbPool.Query(ctx, query, itemIds, worldId, retrievalLimit*len(itemIds))
+	if err != nil {
+		return nil, err
+	}
+
+	sales, err := extractSales(rows, err)
+	if err != nil {
+		return nil, err
+	}
+
+	return sales, nil
+}
+
+func (c *CacheableRepository) GetSalesForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]*Sale, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	worldsOnDc := getWorldsOnDc(c, dataCenterId)
+	query := `SELECT * FROM sales WHERE item_id = ANY($1) AND world_id = ANY($2) ORDER BY sale_time DESC LIMIT $3`
+
+	rows, err := c.DbPool.Query(ctx, query, itemIds, worldsOnDc, retrievalLimit*len(itemIds))
 	if err != nil {
 		return nil, err
 	}

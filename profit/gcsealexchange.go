@@ -10,7 +10,11 @@ type GcSealExchange struct {
 	RankRequired readertype.GrandCompanyRank
 }
 
-func (gcSealExchange GcSealExchange) GetObtainType() string {
+func (gcSealExchange GcSealExchange) GetExchangeType() ExchangeType {
+	return ExchangeTypeGcSeal
+}
+
+func (gcSealExchange GcSealExchange) GetObtainDescription() string {
 	return "Grand Company Seal"
 }
 

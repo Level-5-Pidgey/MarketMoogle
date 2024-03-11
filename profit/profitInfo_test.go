@@ -4,6 +4,7 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/db"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -43,10 +44,12 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				},
 			},
 			want: &SaleMethod{
-				ExchangeType: "Sell to NPC",
-				Value:        50,
-				Quantity:     1,
-				ValuePer:     50,
+				ExchangeType:      ExchangeTypeGil,
+				Value:             50,
+				Quantity:          1,
+				ValuePer:          50,
+				SaleVelocity:      0.0001,
+				CompetitionFactor: 1.0,
 			},
 		},
 		{
@@ -76,10 +79,12 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				},
 			},
 			want: &SaleMethod{
-				ExchangeType: "Sell to NPC",
-				Value:        500,
-				Quantity:     1,
-				ValuePer:     500,
+				ExchangeType:      ExchangeTypeGil,
+				Value:             500,
+				Quantity:          1,
+				ValuePer:          500,
+				SaleVelocity:      0.0001,
+				CompetitionFactor: 0.5,
 			},
 		},
 		{
@@ -109,10 +114,12 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				},
 			},
 			want: &SaleMethod{
-				ExchangeType: "Marketboard",
-				Value:        495,
-				Quantity:     5,
-				ValuePer:     99,
+				ExchangeType:      ExchangeTypeMarketboard,
+				Value:             495,
+				Quantity:          5,
+				ValuePer:          99,
+				SaleVelocity:      0.0001,
+				CompetitionFactor: 0.5,
 			},
 		},
 		// TODO add tests for sales tracking
@@ -122,7 +129,12 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 			tt.name, func(t *testing.T) {
 				itemMap := make(map[int]*Item)
 
-				p := NewProfitCalculator(&itemMap, db.NewMockRepository())
+				p := NewProfitCalculator(
+					&itemMap,
+					nil,
+					nil,
+					db.NewMockRepository(),
+				)
 
 				if got := p.GetBestSaleMethod(
 					tt.args.item,
@@ -197,10 +209,11 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
 						ShoppingListing{
-							ItemId:   2,
-							Quantity: 1,
-							worldId:  2,
-							CostPer:  100,
+							ItemId:    2,
+							Quantity:  1,
+							listingId: 2,
+							worldId:   2,
+							CostPer:   100,
 						},
 					},
 					itemsRequired: map[int]int{2: 1},
@@ -290,7 +303,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						LocalItem{
 							ItemId:       3,
 							Quantity:     6,
-							ObtainedFrom: "NPC",
+							ObtainedFrom: "Buy with Gil",
 							CostPer:      5,
 						},
 					},
@@ -359,15 +372,16 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
 						ShoppingListing{
-							ItemId:   2,
-							Quantity: 3,
-							worldId:  2,
-							CostPer:  501,
+							ItemId:    2,
+							Quantity:  3,
+							listingId: 2,
+							worldId:   2,
+							CostPer:   501,
 						},
 						LocalItem{
 							ItemId:       3,
 							Quantity:     2,
-							ObtainedFrom: "NPC",
+							ObtainedFrom: "Buy with Gil",
 							CostPer:      250,
 						},
 					},
@@ -471,7 +485,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						LocalItem{
 							ItemId:       1,
 							Quantity:     1,
-							ObtainedFrom: "NPC",
+							ObtainedFrom: "Buy with Gil",
 							CostPer:      500,
 						},
 					},
@@ -514,7 +528,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						LocalItem{
 							ItemId:       1,
 							Quantity:     1,
-							ObtainedFrom: "NPC",
+							ObtainedFrom: "Grand Company Seal",
 							CostPer:      200,
 						},
 					},
@@ -592,7 +606,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 									Value:    200,
 									Quantity: 1,
 								},
-								RankRequired: 4,
+								RankRequired: readertype.PrivateSecondClass,
 							},
 							GilExchange{
 								TokenExchange: TokenExchange{
@@ -639,17 +653,19 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 			want: &ObtainMethod{
 				ShoppingCart: ShoppingCart{
 					ItemsToBuy: []ShoppingItem{
-						LocalItem{
-							ItemId:       2,
-							Quantity:     1,
-							ObtainedFrom: "NPC",
-							CostPer:      2500,
+						ShoppingListing{
+							ItemId:    2,
+							Quantity:  1,
+							listingId: 3,
+							worldId:   3,
+							CostPer:   50,
 						},
 						ShoppingListing{
-							ItemId:   3,
-							Quantity: 1,
-							worldId:  1,
-							CostPer:  20,
+							ItemId:    3,
+							Quantity:  1,
+							listingId: 6,
+							worldId:   1,
+							CostPer:   20,
 						},
 					},
 					itemsRequired: map[int]int{
@@ -683,14 +699,29 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					}
 				}
 
-				p := NewProfitCalculator(&itemMap, repo)
+				p := NewProfitCalculator(
+					&itemMap,
+					nil,
+					nil,
+					repo,
+				)
 
-				if got := p.GetCheapestObtainMethod(
+				got := p.GetCheapestObtainMethod(
 					tt.args.item,
 					1,
 					tt.args.listings,
 					tt.args.playerServer,
-				); !reflect.DeepEqual(got, tt.want) {
+				)
+
+				if got != nil && got.ShoppingCart.ItemsToBuy != nil {
+					sort.Slice(
+						got.ShoppingCart.ItemsToBuy, func(i, j int) bool {
+							return got.ShoppingCart.ItemsToBuy[i].GetHash() < got.ShoppingCart.ItemsToBuy[j].GetHash()
+						},
+					)
+				}
+
+				if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("GetCheapestObtainMethod() = %v, want %v", got, tt.want)
 				}
 			},
@@ -1065,7 +1096,12 @@ func TestProfitCalculator_getIngredientsForRecipe(t *testing.T) {
 				}
 
 				repo := db.NewMockRepository()
-				p := NewProfitCalculator(&itemMap, repo)
+				p := NewProfitCalculator(
+					&itemMap,
+					nil,
+					nil,
+					repo,
+				)
 
 				if got := p.getIngredientsForRecipe(
 					nil,

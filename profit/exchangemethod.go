@@ -8,7 +8,9 @@ import (
 )
 
 type ExchangeMethod interface {
-	GetObtainType() string
+	GetExchangeType() ExchangeType
+
+	GetObtainDescription() string
 
 	GetCost() int
 
