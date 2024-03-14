@@ -3,7 +3,9 @@ package profitCalc
 import (
 	"errors"
 	"fmt"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/profit/exchange"
 	"log"
 	"math"
 	"sort"
@@ -13,8 +15,8 @@ import (
 
 type ProfitCalculator struct {
 	Items                    *map[int]*Item
-	currencyByObtainMethod   *map[ExchangeType]map[int]*Item
-	currencyByExchangeMethod *map[ExchangeType]map[int]*Item
+	currencyByObtainMethod   *map[string]map[int]*Item
+	currencyByExchangeMethod *map[string]map[int]*Item
 	repository               db.Repository
 }
 
@@ -24,8 +26,8 @@ const (
 
 func NewProfitCalculator(
 	itemMap *map[int]*Item,
-	currencyByObtainMethod *map[ExchangeType]map[int]*Item,
-	currencyByExchangeMethod *map[ExchangeType]map[int]*Item,
+	currencyByObtainMethod *map[string]map[int]*Item,
+	currencyByExchangeMethod *map[string]map[int]*Item,
 	repo db.Repository,
 ) *ProfitCalculator {
 	return &ProfitCalculator{
@@ -38,7 +40,7 @@ func NewProfitCalculator(
 
 type SaleMethod struct {
 	// What's the method to sell this item?
-	ExchangeType ExchangeType
+	ExchangeType string
 	// How much currency you're getting from this sale
 	Value int
 	// How many items you need to sell to get the currency
@@ -71,7 +73,7 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 				}
 
 				listingSale := SaleMethod{
-					ExchangeType:      ExchangeTypeMarketboard,          // TODO put info's world name here, change this to a more complex type
+					ExchangeType:      readertype.Marketboard,           // TODO put info's world name here, change this to a more complex type
 					Value:             listing.Total - listing.Quantity, // 1 gil undercut per item
 					Quantity:          listing.Quantity,
 					ValuePer:          listing.PricePer - 1, // 1 gil undercut
@@ -105,7 +107,7 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 					averageQuantity := totalQuantity / len(*sales)
 
 					historySale := SaleMethod{
-						ExchangeType:      ExchangeTypeMarketboard, // TODO put info's world name here, change this to a more complex type
+						ExchangeType:      readertype.Marketboard, // TODO put info's world name here, change this to a more complex type
 						Value:             averageSale * averageQuantity,
 						Quantity:          averageQuantity,
 						ValuePer:          averageSale,
@@ -124,9 +126,10 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 	// Get profit from exchanges
 	if item.ExchangeMethods != nil {
 		exchangeMethods := *item.ExchangeMethods
-		for _, exchange := range exchangeMethods {
+
+		for _, exchangeMethod := range exchangeMethods {
 			currentMethod := SaleMethod{
-				ExchangeType:      ExchangeTypeDefault,
+				ExchangeType:      exchangeMethod.GetExchangeType(),
 				Value:             0,
 				Quantity:          0,
 				ValuePer:          0,
@@ -134,18 +137,18 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 				CompetitionFactor: competitionFactor,
 			}
 
-			switch exchange.GetExchangeType() {
-			case ExchangeTypeGil:
-				currentMethod.ExchangeType = ExchangeTypeGil
-				currentMethod.Value = exchange.GetCost()
-				currentMethod.Quantity = exchange.GetQuantity()
-				currentMethod.ValuePer = exchange.GetCost() / exchange.GetQuantity()
+			switch exchangeMethod.GetExchangeType() {
+			case readertype.Gil:
+				currentMethod.ExchangeType = readertype.Gil
+				currentMethod.Value = exchangeMethod.GetCost()
+				currentMethod.Quantity = exchangeMethod.GetQuantity()
+				currentMethod.ValuePer = exchangeMethod.GetCost() / exchangeMethod.GetQuantity()
 			default:
 				if gilOnly {
 					continue
 				}
 
-				exchangeType := exchange.GetExchangeType()
+				exchangeType := exchangeMethod.GetExchangeType()
 				// Get equivalent gil value for this currency
 				gilValue, err := p.GetSellValueForCurrency(exchangeType, info)
 
@@ -153,12 +156,12 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 					continue
 				}
 
-				gilCost := int(float64(exchange.GetQuantity()) * gilValue)
+				gilCost := int(float64(exchangeMethod.GetQuantity()) * gilValue)
 
 				currentMethod.ExchangeType = exchangeType
 				currentMethod.Value = gilCost
-				currentMethod.Quantity = exchange.GetQuantity()
-				currentMethod.ValuePer = gilCost / exchange.GetQuantity()
+				currentMethod.Quantity = exchangeMethod.GetQuantity()
+				currentMethod.ValuePer = gilCost / exchangeMethod.GetQuantity()
 			}
 
 			if bestSale == nil || currentMethod.ValuePer > bestSale.ValuePer {
@@ -175,7 +178,7 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 }
 
 type ObtainMethod struct {
-	ShoppingCart ShoppingCart
+	ShoppingCart ShoppingCart `json:"ItemsToBuy"`
 
 	// TODO expand this into an object (with a type enum and human readable value)
 	ObtainMethod string
@@ -485,24 +488,23 @@ func (p *ProfitCalculator) nonMarketObtainMethod(
 	item *Item, numRequired int, cheapestMethod *ObtainMethod, info *PlayerInfo,
 ) *ObtainMethod {
 	for _, obtainMethod := range *item.ObtainMethods {
-		costMultiplier := 1.0
+		obtainCost := 500
+
 		switch obtainMethod.GetExchangeType() {
-		case ExchangeTypeGcSeal:
-			// TODO this is kinda ugly please consider fixing 2 different "type" casts
-			if info.GrandCompanyRank < obtainMethod.(GcSealExchange).RankRequired {
+		case readertype.GrandCompanySeal:
+			if info.GrandCompanyRank < obtainMethod.(exchange.GcSealExchange).RankRequired {
 				continue
 			}
-		case ExchangeTypeGathering:
-		case ExchangeTypeGil:
+		case readertype.Gathering:
+		case readertype.Gil:
+			obtainCost = obtainMethod.GetCostPerItem()
 			break
 		default:
-			gilPerCurrency, err := p.GetSellValueForCurrency(obtainMethod.GetExchangeType(), info)
+			currencyObtain, err := p.GetCheapestWayToObtainCurrency(obtainMethod.GetExchangeType(), info)
 
-			if err != nil {
-				continue
+			if err == nil && currencyObtain != nil {
+				obtainCost = currencyObtain.GetCostPerItem() * obtainMethod.GetQuantity()
 			}
-
-			costMultiplier = gilPerCurrency
 		}
 
 		numOfExchanges := 1
@@ -512,7 +514,6 @@ func (p *ProfitCalculator) nonMarketObtainMethod(
 			totalEffort *= 1.01
 		}
 		totalQuantity := numOfExchanges * obtainMethod.GetQuantity()
-		adjustedCost := int(math.Round(float64(obtainMethod.GetCost()) * costMultiplier))
 
 		currentMethod := ObtainMethod{
 			ShoppingCart: ShoppingCart{
@@ -521,7 +522,7 @@ func (p *ProfitCalculator) nonMarketObtainMethod(
 						ItemId:       item.Id,
 						Quantity:     totalQuantity,
 						ObtainedFrom: obtainMethod.GetObtainDescription(), // TODO add npc name here
-						CostPer:      adjustedCost,
+						CostPer:      obtainCost,
 					},
 				},
 				itemsRequired: map[int]int{
@@ -530,7 +531,7 @@ func (p *ProfitCalculator) nonMarketObtainMethod(
 			},
 			Quantity:     totalQuantity,
 			EffortFactor: totalEffort,
-			ObtainMethod: obtainMethod.GetObtainDescription(),
+			ObtainMethod: obtainMethod.GetExchangeType(),
 		}
 
 		if isEasierToObtain(cheapestMethod, &currentMethod) {
@@ -682,12 +683,12 @@ func calculateProfitScore(bestSale *SaleMethod, cost int, effort float64) float6
 	}
 
 	adjustedProfit := float64(profitMargin) * bestSale.SaleVelocity
-	profitScore := math.Round((adjustedProfit * bestSale.CompetitionFactor) / effort)
+	profitScore := (adjustedProfit * bestSale.CompetitionFactor) / effort
 
 	return profitScore
 }
 
-func (p *ProfitCalculator) GetSellValueForCurrency(exchange ExchangeType, info *PlayerInfo) (
+func (p *ProfitCalculator) GetSellValueForCurrency(exchange string, info *PlayerInfo) (
 	float64, error,
 ) {
 	if p.currencyByObtainMethod == nil {
@@ -708,6 +709,10 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange ExchangeType, info *
 		itemIds = append(itemIds, item.Id)
 	}
 
+	if len(itemIds) == 0 {
+		return 0, nil
+	}
+
 	listings, err := p.repository.GetListingsForItemsOnWorld(itemIds, info.HomeServer)
 	if err != nil {
 		return 0, nil
@@ -722,6 +727,7 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange ExchangeType, info *
 	type scorePerCurrency struct {
 		score       float64
 		perCurrency float64
+		item        *Item
 	}
 	scoreChan := make(chan scorePerCurrency)
 
@@ -774,6 +780,7 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange ExchangeType, info *
 			scoreChan <- scorePerCurrency{
 				score:       currentScore,
 				perCurrency: float64(itemSale.ValuePer) / float64(adjustedQuantity),
+				item:        item,
 			}
 		}(item, listings, sales, info)
 	}
@@ -783,19 +790,21 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange ExchangeType, info *
 		close(scoreChan)
 	}()
 
-	bestCost := 0.0
-	bestScore := 0.0
+	best := scorePerCurrency{
+		score:       0,
+		perCurrency: 0,
+		item:        nil,
+	}
 	for result := range scoreChan {
-		if result.score > bestScore {
-			bestScore = result.score
-			bestCost = result.perCurrency
+		if result.score > best.score {
+			best = result
 		}
 	}
 
-	return bestCost, nil
+	return best.perCurrency, nil
 }
 
-func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(exchangeType ExchangeType, info *PlayerInfo) (
+func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(exchangeType string, info *PlayerInfo) (
 	*ObtainMethod, error,
 ) {
 	if p.currencyByExchangeMethod == nil {

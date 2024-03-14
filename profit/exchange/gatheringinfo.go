@@ -1,7 +1,8 @@
-package profitCalc
+package exchange
 
 import (
 	"fmt"
+	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"slices"
 	"strings"
 )
@@ -14,8 +15,8 @@ type GatheringInfo struct {
 	IsHidden      bool
 }
 
-func (gatheringInfo GatheringInfo) GetExchangeType() ExchangeType {
-	return ExchangeTypeGathering
+func (gatheringInfo GatheringInfo) GetExchangeType() string {
+	return readertype.Gathering
 }
 
 func (gatheringInfo GatheringInfo) GetObtainDescription() string {
@@ -41,7 +42,7 @@ func (gatheringInfo GatheringInfo) GetEffortFactor() float64 {
 
 	levelFactor := 0.1
 	// Reduce effort factor for every 10 levels below the max level this item is to gather
-	for i := gatheringInfo.Level; i < maxLevel; i += 10 {
+	for i := gatheringInfo.Level; i < 90; i += 10 {
 		effortFactor -= levelFactor
 		levelFactor /= 2
 	}
@@ -62,8 +63,8 @@ func (gatheringInfo GatheringInfo) GetCost() int {
 	baseCost := 1650
 
 	adjustedCost := baseCost
-	for i := gatheringInfo.Level; i < maxLevel; i += 3 {
-		// Cap minimum price of teleport at 150 gil
+	for i := gatheringInfo.Level; i < 90; i += 3 {
+		// Cap minimum Price of teleport at 150 gil
 		if adjustedCost <= 150 {
 			return adjustedCost
 		}

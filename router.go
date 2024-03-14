@@ -13,8 +13,8 @@ import (
 
 func Routes(
 	items *map[int]*profitCalc.Item,
-	itemsByObtainInfo *map[profitCalc.ExchangeType]map[int]*profitCalc.Item,
-	itemsByExchangeMethod *map[profitCalc.ExchangeType]map[int]*profitCalc.Item,
+	itemsByObtainInfo *map[string]map[int]*profitCalc.Item,
+	itemsByExchangeMethod *map[string]map[int]*profitCalc.Item,
 	collection *dc.DataCollection,
 	worlds *map[int]*readertype.World,
 	db db.Repository,
@@ -25,7 +25,7 @@ func Routes(
 		cors.Handler(
 			cors.Options{
 				AllowedOrigins:   []string{"https://*", "http://*"},
-				AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+				AllowedMethods:   []string{"GET"},
 				AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 				ExposedHeaders:   []string{"Link"},
 				AllowCredentials: true,

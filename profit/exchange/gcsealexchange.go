@@ -1,40 +1,50 @@
-package profitCalc
+package exchange
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"math"
 )
 
 type GcSealExchange struct {
-	TokenExchange
+	CurrencyExchange
 	RankRequired readertype.GrandCompanyRank
 }
 
-func (gcSealExchange GcSealExchange) GetExchangeType() ExchangeType {
-	return ExchangeTypeGcSeal
+func NewGcSealExchange(price int, npc, shop string, rank readertype.GrandCompanyRank) GcSealExchange {
+	return GcSealExchange{
+		CurrencyExchange: CurrencyExchange{
+			CurrencyType: readertype.GrandCompanySeal,
+			Price:        price,
+			Quantity:     1,
+			Npc:          npc,
+			ShopName:     shop,
+		},
+		RankRequired: rank,
+	}
 }
 
 func (gcSealExchange GcSealExchange) GetObtainDescription() string {
-	return "Grand Company Seal"
+	var buffer bytes.Buffer
+	buffer.WriteString(
+		fmt.Sprintf(
+			"Exchange %s (Rank: %s",
+			gcSealExchange.CurrencyType.GetPlural(),
+			gcSealExchange.RankRequired.String(),
+		),
+	)
+
+	if gcSealExchange.ShopName != "" {
+		buffer.WriteString(fmt.Sprintf(", %s)", gcSealExchange.ShopName))
+	} else {
+		buffer.WriteString(")")
+	}
+
+	return buffer.String()
 }
 
-func (gcSealExchange GcSealExchange) GetCost() int {
-	return gcSealExchange.Value
-}
-
-func (gcSealExchange GcSealExchange) GetQuantity() int {
-	return gcSealExchange.Quantity
-}
-
-func (gcSealExchange GcSealExchange) GetCostPerItem() int {
-	return gcSealExchange.GetCost() / gcSealExchange.GetQuantity()
-}
-
-func (gcSealExchange GcSealExchange) GetEffortFactor() float64 {
-	return 0.9
-}
-
-func calculateSealValue(item *readertype.Item) int {
+func CalculateSealValue(item *readertype.Item) int {
 	if item.Rarity <= 1 || item.ItemLevel == 0 {
 		return 0
 	}

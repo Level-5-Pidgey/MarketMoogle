@@ -12,4 +12,5 @@ type ItemInfoDataCollection struct {
 	ItemSearchCategories *map[int]*readertype.ItemSearchCategory
 	GilShopItems         *map[int]*readertype.GilShopItem
 	GcScripShopItem      *map[int]*readertype.GcScripShopItem
+	SpecialShopItem      *map[int]*readertype.SpecialShop
 }

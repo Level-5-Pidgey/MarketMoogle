@@ -121,6 +121,12 @@ func CreateDataCollection() (*DataCollection, error) {
 				FileName:   "TerritoryType",
 			},
 		},
+		csv.UngroupedXivCsvReader[readertype.SpecialShop]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.SpecialShop]{
+				RowsToSkip: 6,
+				FileName:   "SpecialShop",
+			},
+		},
 	}
 
 	var wg sync.WaitGroup
@@ -178,6 +184,7 @@ func CreateDataCollection() (*DataCollection, error) {
 		gatheringTypes       map[int]*readertype.GatheringType
 		placeNames           map[int]*readertype.PlaceName
 		territoryTypes       map[int]*readertype.TerritoryType
+		specialShopItems     map[int]*readertype.SpecialShop
 	)
 
 	results := make([]csvResults, 0)
@@ -238,6 +245,7 @@ func CreateDataCollection() (*DataCollection, error) {
 			ItemSearchCategories: &itemSearchCategories,
 			GilShopItems:         &gilShopItems,
 			GcScripShopItem:      &gcScripShopItems,
+			SpecialShopItem:      &specialShopItems,
 		},
 	}
 
@@ -255,20 +263,7 @@ func CreateDataCollection() (*DataCollection, error) {
 		// Ungrouped
 		case "Item":
 			if data, ok := result.data.(map[int]*readertype.Item); ok {
-				itemMap := make(map[int]*readertype.Item)
-				currencyMap := make(map[int]*readertype.Item)
-
-				// Split currencies into their own map.
-				for _, itemData := range data {
-					if itemData.SortCategory == 3 ||
-						(itemData.SortCategory == 55 && itemData.UiCategory == 61) {
-						currencyMap[itemData.Id] = itemData
-					} else {
-						itemMap[itemData.Id] = itemData
-					}
-				}
-
-				items = itemMap
+				items = data
 			}
 		case "SecretRecipeBook":
 			if data, ok := result.data.(map[int]*readertype.RecipeBook); ok {
@@ -325,6 +320,10 @@ func CreateDataCollection() (*DataCollection, error) {
 		case "TerritoryType":
 			if data, ok := result.data.(map[int]*readertype.TerritoryType); ok {
 				territoryTypes = data
+			}
+		case "SpecialShop":
+			if data, ok := result.data.(map[int]*readertype.SpecialShop); ok {
+				specialShopItems = data
 			}
 		}
 	}

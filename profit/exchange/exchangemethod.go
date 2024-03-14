@@ -1,4 +1,4 @@
-package profitCalc
+package exchange
 
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
@@ -7,8 +7,8 @@ import (
 	"slices"
 )
 
-type ExchangeMethod interface {
-	GetExchangeType() ExchangeType
+type Method interface {
+	GetExchangeType() string
 
 	GetObtainDescription() string
 
@@ -21,37 +21,32 @@ type ExchangeMethod interface {
 	GetEffortFactor() float64
 }
 
-func getObtainMethods(item *readertype.Item, collection *datacollection.DataCollection) (*[]ExchangeMethod, error) {
+func GetObtainMethods(item *readertype.Item, collection *datacollection.DataCollection) (*[]Method, error) {
 	scripShopItems := *collection.GcScripShopItem
 	gatheringItems := *collection.GatheringItems
 
-	var obtainMethods []ExchangeMethod
+	var obtainMethods []Method
 
 	if item.BuyFromVendorPrice > 0 {
 		gilShopItems := *collection.GilShopItems
 
 		if _, ok := gilShopItems[item.Id]; ok {
 			obtainMethods = append(
-				obtainMethods, GilExchange{
-					TokenExchange: TokenExchange{
-						Value:    item.BuyFromVendorPrice,
-						Quantity: 1,
-					},
-					NpcName: "TBI",
-				},
+				obtainMethods,
+				NewGilExchange(item.BuyFromVendorPrice, "NPC", ""), // TODO populate these
 			)
 		}
 	}
 
 	if gcScripShopItem, ok := scripShopItems[item.Id]; ok {
 		obtainMethods = append(
-			obtainMethods, GcSealExchange{
-				TokenExchange: TokenExchange{
-					Value:    gcScripShopItem.AmountRequired,
-					Quantity: 1,
-				},
-				RankRequired: readertype.GrandCompanyRank(gcScripShopItem.GrandCompanyRankRequired),
-			},
+			obtainMethods,
+			NewGcSealExchange(
+				gcScripShopItem.AmountRequired,
+				"Grand Company Quartermaster",
+				"",
+				readertype.GrandCompanyRank(gcScripShopItem.GrandCompanyRankRequired),
+			), // TODO we might be able to populate the shop name
 		)
 	}
 

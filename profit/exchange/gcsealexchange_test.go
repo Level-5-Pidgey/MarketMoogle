@@ -1,4 +1,4 @@
-package profitCalc
+package exchange
 
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
@@ -146,8 +146,8 @@ func Test_CalculateSealValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(
 			tt.name, func(t *testing.T) {
-				if got := calculateSealValue(tt.item); got != tt.want {
-					t.Errorf("calculateSealValue() = %v, want %v", got, tt.want)
+				if got := CalculateSealValue(tt.item); got != tt.want {
+					t.Errorf("CalculateSealValue() = %v, want %v", got, tt.want)
 				}
 			},
 		)

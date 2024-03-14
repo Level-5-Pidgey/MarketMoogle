@@ -216,8 +216,8 @@ func (c Controller) GetCurrencyProfit(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	exchangeType := profitCalc.FromString(currency)
-	value, err := c.profitCalc.GetSellValueForCurrency(exchangeType, &playerInfo)
+	exchangeType := readertype.FromApiParam(currency)
+	value, err := c.profitCalc.GetSellValueForCurrency(exchangeType.String(), &playerInfo)
 
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
@@ -255,8 +255,8 @@ func (c Controller) GetCostToAcquireCurrency(w http.ResponseWriter, r *http.Requ
 		},
 	}
 
-	exchangeType := profitCalc.FromString(currency)
-	obtainMethod, err := c.profitCalc.GetCheapestWayToObtainCurrency(exchangeType, &playerInfo)
+	exchangeType := readertype.FromApiParam(currency)
+	obtainMethod, err := c.profitCalc.GetCheapestWayToObtainCurrency(exchangeType.String(), &playerInfo)
 
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)

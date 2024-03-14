@@ -4,13 +4,8 @@ import (
 	"errors"
 	"github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
+	"github.com/level-5-pidgey/MarketMoogle/profit/exchange"
 )
-
-/*
-TODO consolidate types into one domain package. There should only be one "item" type, and when read from the csv
-	all this calculation should be done at the same time, or initial information should be layed out and then
-	the next readers should add more information to the item
-*/
 
 type Item struct {
 	Id int
@@ -30,14 +25,14 @@ type Item struct {
 	CanBeHq          bool
 	IsCollectable    bool
 	// IsGlamour            bool
-	ExchangeMethods *[]ExchangeMethod
-	ObtainMethods   *[]ExchangeMethod
+	ExchangeMethods *[]exchange.Method
+	ObtainMethods   *[]exchange.Method
 	CraftingRecipes *[]RecipeInfo
 }
 
 func CreateFromCsvData(csvItem *readertype.Item, dataCollection *datacollection.DataCollection) (*Item, error) {
 	itemRecipes, recipeError := getRecipes(csvItem, dataCollection)
-	obtainMethods, obtainError := getObtainMethods(csvItem, dataCollection)
+	obtainMethods, obtainError := exchange.GetObtainMethods(csvItem, dataCollection)
 	exchangeMethods, exchangeError := getExchangeMethods(dataCollection, csvItem)
 
 	if err := errors.Join(recipeError, obtainError, exchangeError); err != nil {
@@ -95,18 +90,12 @@ func CreateFromCsvData(csvItem *readertype.Item, dataCollection *datacollection.
 
 func getExchangeMethods(
 	dataCollection *datacollection.DataCollection, csvItem *readertype.Item,
-) (*[]ExchangeMethod, error) {
-	var exchangeMethods []ExchangeMethod
+) (*[]exchange.Method, error) {
+	var exchangeMethods []exchange.Method
 	if csvItem.SellToVendorPrice > 0 {
 		exchangeMethods = append(
 			exchangeMethods,
-			GilExchange{
-				TokenExchange: TokenExchange{
-					Value:    csvItem.SellToVendorPrice,
-					Quantity: 1,
-				},
-				NpcName: "NPC",
-			},
+			exchange.NewGilExchange(csvItem.SellToVendorPrice, "", ""), // TODO populate these
 		)
 	}
 
@@ -114,15 +103,11 @@ func getExchangeMethods(
 		csvItem.ItemLevel > 1 &&
 		csvItem.EquipLevel > 1 &&
 		csvItem.StackSize == 1 {
+
+		sealPrice := exchange.CalculateSealValue(csvItem)
 		exchangeMethods = append(
 			exchangeMethods,
-			GcSealExchange{
-				TokenExchange: TokenExchange{
-					Value:    calculateSealValue(csvItem),
-					Quantity: 1,
-				},
-				RankRequired: 6, // Sgt. Second Class
-			},
+			exchange.NewGcSealExchange(sealPrice, "", "", readertype.SergeantSecondClass),
 		)
 	}
 

@@ -3,6 +3,7 @@ package profitCalc
 import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/db"
+	"github.com/level-5-pidgey/MarketMoogle/profit/exchange"
 	"reflect"
 	"sort"
 	"testing"
@@ -27,14 +28,8 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 					Id:               5,
 					MarketProhibited: true,
 					CanBeTraded:      true,
-					ExchangeMethods: &[]ExchangeMethod{
-						GilExchange{
-							TokenExchange: TokenExchange{
-								Value:    50,
-								Quantity: 1,
-							},
-							NpcName: "NPC",
-						},
+					ExchangeMethods: &[]exchange.Method{
+						exchange.NewGilExchange(50, "NPC", ""),
 					},
 				},
 				listings: nil,
@@ -44,7 +39,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				},
 			},
 			want: &SaleMethod{
-				ExchangeType:      ExchangeTypeGil,
+				ExchangeType:      readertype.Gil,
 				Value:             50,
 				Quantity:          1,
 				ValuePer:          50,
@@ -59,14 +54,8 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 					Id:               6,
 					MarketProhibited: true,
 					CanBeTraded:      true,
-					ExchangeMethods: &[]ExchangeMethod{
-						GilExchange{
-							TokenExchange: TokenExchange{
-								Value:    500,
-								Quantity: 1,
-							},
-							NpcName: "NPC",
-						},
+					ExchangeMethods: &[]exchange.Method{
+						exchange.NewGilExchange(500, "NPC", ""),
 					},
 				},
 				listings: &[]*db.Listing{
@@ -79,7 +68,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				},
 			},
 			want: &SaleMethod{
-				ExchangeType:      ExchangeTypeGil,
+				ExchangeType:      readertype.Gil,
 				Value:             500,
 				Quantity:          1,
 				ValuePer:          500,
@@ -94,14 +83,8 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 					Id:               5,
 					MarketProhibited: true,
 					CanBeTraded:      true,
-					ExchangeMethods: &[]ExchangeMethod{
-						GilExchange{
-							TokenExchange: TokenExchange{
-								Value:    400,
-								Quantity: 5,
-							},
-							NpcName: "NPC",
-						},
+					ExchangeMethods: &[]exchange.Method{
+						exchange.NewGilExchange(80, "NPC", ""),
 					},
 				},
 				listings: &[]*db.Listing{
@@ -114,7 +97,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				},
 			},
 			want: &SaleMethod{
-				ExchangeType:      ExchangeTypeMarketboard,
+				ExchangeType:      readertype.Marketboard,
 				Value:             495,
 				Quantity:          5,
 				ValuePer:          99,
@@ -185,14 +168,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				item: &Item{
 					Id:               2,
 					MarketProhibited: false,
-					ObtainMethods: &[]ExchangeMethod{
-						GilExchange{
-							TokenExchange: TokenExchange{
-								Value:    500,
-								Quantity: 1,
-							},
-							NpcName: "NPC",
-						},
+					ObtainMethods: &[]exchange.Method{
+						exchange.NewGilExchange(500, "NPC", ""),
 					},
 				},
 				listings: &[]*db.Listing{
@@ -229,14 +206,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				item: &Item{
 					Id:               1,
 					MarketProhibited: true,
-					ObtainMethods: &[]ExchangeMethod{
-						GilExchange{
-							TokenExchange: TokenExchange{
-								Value:    75,
-								Quantity: 1,
-							},
-							NpcName: "Expensive vendor",
-						},
+					ObtainMethods: &[]exchange.Method{
+						exchange.NewGilExchange(75, "Expensive vendor", ""),
 					},
 					CanBeHq: true,
 					CraftingRecipes: &[]RecipeInfo{
@@ -285,14 +256,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					},
 					{
 						Id: 3,
-						ObtainMethods: &[]ExchangeMethod{
-							GilExchange{
-								TokenExchange: TokenExchange{
-									Value:    5,
-									Quantity: 1,
-								},
-								NpcName: "NPC",
-							},
+						ObtainMethods: &[]exchange.Method{
+							exchange.NewGilExchange(5, "NPC", ""),
 						},
 					},
 				},
@@ -303,7 +268,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						LocalItem{
 							ItemId:       3,
 							Quantity:     6,
-							ObtainedFrom: "Buy with Gil",
+							ObtainedFrom: "Buy from NPC",
 							CostPer:      5,
 						},
 					},
@@ -356,14 +321,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					},
 					{
 						Id: 3,
-						ObtainMethods: &[]ExchangeMethod{
-							GilExchange{
-								TokenExchange: TokenExchange{
-									Value:    250,
-									Quantity: 1,
-								},
-								NpcName: "NPC",
-							},
+						ObtainMethods: &[]exchange.Method{
+							exchange.NewGilExchange(250, "NPC", ""),
 						},
 					},
 				},
@@ -381,7 +340,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						LocalItem{
 							ItemId:       3,
 							Quantity:     2,
-							ObtainedFrom: "Buy with Gil",
+							ObtainedFrom: "Buy from NPC",
 							CostPer:      250,
 						},
 					},
@@ -462,14 +421,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				item: &Item{
 					Id:               1,
 					MarketProhibited: true,
-					ObtainMethods: &[]ExchangeMethod{
-						GilExchange{
-							TokenExchange: TokenExchange{
-								Value:    500,
-								Quantity: 1,
-							},
-							NpcName: "NPC",
-						},
+					ObtainMethods: &[]exchange.Method{
+						exchange.NewGilExchange(500, "NPC", ""),
 					},
 				},
 				listings: nil,
@@ -485,7 +438,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						LocalItem{
 							ItemId:       1,
 							Quantity:     1,
-							ObtainedFrom: "Buy with Gil",
+							ObtainedFrom: "Buy from NPC",
 							CostPer:      500,
 						},
 					},
@@ -493,7 +446,7 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						1: 1,
 					},
 				},
-				ObtainMethod: "Buy with Gil",
+				ObtainMethod: "Gil",
 				Quantity:     1,
 				EffortFactor: 0.85,
 			},
@@ -504,14 +457,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				item: &Item{
 					Id:               1,
 					MarketProhibited: true,
-					ObtainMethods: &[]ExchangeMethod{
-						GcSealExchange{
-							TokenExchange: TokenExchange{
-								Value:    200,
-								Quantity: 1,
-							},
-							RankRequired: 4,
-						},
+					ObtainMethods: &[]exchange.Method{
+						exchange.NewGcSealExchange(200, "", "", readertype.Corporal),
 					},
 				},
 				listings: nil,
@@ -528,8 +475,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 						LocalItem{
 							ItemId:       1,
 							Quantity:     1,
-							ObtainedFrom: "Grand Company Seal",
-							CostPer:      200,
+							ObtainedFrom: "Exchange Grand Company Seals (Rank: Corporal)",
+							CostPer:      500, // This is the default gil cost for a currency grind
 						},
 					},
 					itemsRequired: map[int]int{
@@ -547,21 +494,9 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 				item: &Item{
 					Id:               1,
 					MarketProhibited: false,
-					ObtainMethods: &[]ExchangeMethod{
-						GcSealExchange{
-							TokenExchange: TokenExchange{
-								Value:    200,
-								Quantity: 1,
-							},
-							RankRequired: readertype.PrivateSecondClass,
-						},
-						GilExchange{
-							TokenExchange: TokenExchange{
-								Value:    1000,
-								Quantity: 1,
-							},
-							NpcName: "Reasonably priced merchant",
-						},
+					ObtainMethods: &[]exchange.Method{
+						exchange.NewGcSealExchange(200, "", "", readertype.PrivateSecondClass),
+						exchange.NewGilExchange(1000, "Reasonably priced merchant", ""),
 					},
 					CraftingRecipes: &[]RecipeInfo{
 						{
@@ -600,21 +535,9 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					{
 						Id:               1,
 						MarketProhibited: false,
-						ObtainMethods: &[]ExchangeMethod{
-							GcSealExchange{
-								TokenExchange: TokenExchange{
-									Value:    200,
-									Quantity: 1,
-								},
-								RankRequired: readertype.PrivateSecondClass,
-							},
-							GilExchange{
-								TokenExchange: TokenExchange{
-									Value:    1000,
-									Quantity: 1,
-								},
-								NpcName: "Reasonably priced merchant",
-							},
+						ObtainMethods: &[]exchange.Method{
+							exchange.NewGcSealExchange(200, "", "", readertype.PrivateSecondClass),
+							exchange.NewGilExchange(1000, "Reasonably priced merchant", ""),
 						},
 						CraftingRecipes: &[]RecipeInfo{
 							{
@@ -635,14 +558,8 @@ func TestProfitCalculator_GetCostToObtain(t *testing.T) {
 					},
 					{
 						Id: 2,
-						ObtainMethods: &[]ExchangeMethod{
-							GilExchange{
-								TokenExchange: TokenExchange{
-									Value:    2500,
-									Quantity: 1,
-								},
-								NpcName: "Very expensive merchant",
-							},
+						ObtainMethods: &[]exchange.Method{
+							exchange.NewGilExchange(2500, "Very expensive merchant", ""),
 						},
 					},
 					{

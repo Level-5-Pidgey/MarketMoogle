@@ -13,6 +13,7 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/db"
 	"github.com/level-5-pidgey/MarketMoogle/profit"
+	"github.com/level-5-pidgey/MarketMoogle/profit/exchange"
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"log"
@@ -130,8 +131,8 @@ func main() {
 	}
 
 	profitItems := make(map[int]*profitCalc.Item)
-	itemsByObtainInfo := make(map[profitCalc.ExchangeType]map[int]*profitCalc.Item)
-	itemsByExchangeMethod := make(map[profitCalc.ExchangeType]map[int]*profitCalc.Item)
+	itemsByObtainInfo := make(map[string]map[int]*profitCalc.Item)
+	itemsByExchangeMethod := make(map[string]map[int]*profitCalc.Item)
 
 	for _, csvItem := range *collection.Items {
 		item, err := profitCalc.CreateFromCsvData(csvItem, collection)
@@ -153,7 +154,7 @@ func main() {
 				key := exchangeMethod.GetExchangeType()
 
 				// Don't include dungeon drops to reduce compute time
-				if key == profitCalc.ExchangeTypeGcSeal && item.DropsFromDungeon {
+				if key == readertype.GrandCompanySeal && item.DropsFromDungeon {
 					continue
 				}
 
@@ -170,6 +171,60 @@ func main() {
 		}
 
 		profitItems[csvItem.Id] = item
+	}
+
+	// Add Special Shop Currency Exchanges to the profit items map
+	for _, shop := range *collection.SpecialShopItem {
+		for _, window := range shop.Windows {
+			// Don't really want to bother with multi-item exchanges at the moment
+			if len(window.Items) > 1 {
+				continue
+			}
+
+			if len(window.Exchange) > 1 {
+				// "Currency" exchanges are denoted with 2 exchanges, with flipped quantities and item ids
+				if window.Exchange[0].CostItem != window.Exchange[1].Quantity &&
+					window.Exchange[1].CostItem != window.Exchange[0].Quantity {
+					continue
+				}
+			}
+
+			exchangeItem := window.Exchange[0]
+			receivedItem := window.Items[0]
+			profitItem, ok := profitItems[receivedItem.ItemReceived]
+
+			if !ok {
+				continue
+			}
+
+			itemCurrency := readertype.FromItemId(exchangeItem.CostItem)
+
+			if itemCurrency == readertype.DefaultCurrency {
+				continue
+			}
+
+			if profitItem.ObtainMethods == nil {
+				obtainMethod := make([]exchange.Method, 0, 1)
+				profitItem.ObtainMethods = &obtainMethod
+			}
+
+			*profitItem.ObtainMethods = append(
+				*profitItem.ObtainMethods, exchange.CurrencyExchange{
+					CurrencyType: itemCurrency,
+					ShopName:     shop.ShopName,
+					Npc:          "", // TODO populate
+					Price:        exchangeItem.Quantity,
+					Quantity:     receivedItem.Quantity,
+				},
+			)
+
+			currencyString := itemCurrency.String()
+			if itemsByObtainInfo[currencyString] == nil {
+				itemsByObtainInfo[currencyString] = make(map[int]*profitCalc.Item)
+			}
+
+			itemsByObtainInfo[currencyString][profitItem.Id] = profitItem
+		}
 	}
 
 	worlds, dataCenters, err := getGameServers()
@@ -621,8 +676,8 @@ type Application struct {
 
 func (app *Application) Serve(
 	items *map[int]*profitCalc.Item,
-	itemsByObtainInfo *map[profitCalc.ExchangeType]map[int]*profitCalc.Item,
-	itemsByExchangeMethod *map[profitCalc.ExchangeType]map[int]*profitCalc.Item,
+	itemsByObtainInfo *map[string]map[int]*profitCalc.Item,
+	itemsByExchangeMethod *map[string]map[int]*profitCalc.Item,
 	collection *dc.DataCollection,
 	worlds *map[int]*readertype.World,
 	db db.Repository,

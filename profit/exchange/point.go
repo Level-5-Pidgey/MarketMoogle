@@ -1,4 +1,4 @@
-package profitCalc
+package exchange
 
 type Point interface {
 	GetRegion() string
