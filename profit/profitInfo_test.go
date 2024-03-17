@@ -1020,13 +1020,13 @@ func TestProfitCalculator_getIngredientsForRecipe(t *testing.T) {
 					repo,
 				)
 
-				if got := p.getIngredientsForRecipe(
+				if got := p.getPossibleSubItems(
 					nil,
 					tt.args.numRequired,
 					tt.args.recipe,
 					tt.args.skipCrystals,
 				); !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("getIngredientsForRecipe() = %v, want %v", got, tt.want)
+					t.Errorf("getPossibleSubItems() = %v, want %v", got, tt.want)
 				}
 			},
 		)

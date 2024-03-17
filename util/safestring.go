@@ -17,3 +17,11 @@ func SafeStringToInt(conv string) int {
 		return i
 	}
 }
+
+func SafeStringToFloat(conv string) float64 {
+	if f, err := strconv.ParseFloat(conv, 64); err != nil {
+		return 0
+	} else {
+		return f
+	}
+}

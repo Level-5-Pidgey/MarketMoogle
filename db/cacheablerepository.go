@@ -557,7 +557,7 @@ func (c *CacheableRepository) GetListingsForItemOnWorld(itemId, worldId int) (*[
 		return nil, err
 	}
 
-	listings, err := extractListings(rows, err)
+	listings, err := extractListings(rows, err, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -576,7 +576,7 @@ func (c *CacheableRepository) GetListingsForItemOnDataCenter(itemId, dataCenterI
 		return nil, err
 	}
 
-	listings, err := extractListings(rows, err)
+	listings, err := extractListings(rows, err, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -599,7 +599,7 @@ func (c *CacheableRepository) GetListingsForItemsOnWorld(itemIds []int, worldId 
 		return nil, err
 	}
 
-	listings, err := extractListings(rows, err)
+	listings, err := extractListings(rows, err, len(itemIds))
 	if err != nil {
 		return nil, err
 	}
@@ -622,7 +622,7 @@ func (c *CacheableRepository) GetListingsForItemsOnDataCenter(itemIds []int, dat
 		return nil, err
 	}
 
-	listings, err := extractListings(rows, err)
+	listings, err := extractListings(rows, err, len(itemIds))
 	if err != nil {
 		return nil, err
 	}
@@ -730,8 +730,8 @@ func getWorldsOnDc(c *CacheableRepository, dataCenterId int) *pgtype.Array[int] 
 	}
 }
 
-func extractListings(rows pgx.Rows, err error) (*[]*Listing, error) {
-	var listings []*Listing
+func extractListings(rows pgx.Rows, err error, len int) (*[]*Listing, error) {
+	listings := make([]*Listing, 0, len*retrievalLimit)
 	for rows.Next() {
 		var listing Listing
 		err = rows.Scan(

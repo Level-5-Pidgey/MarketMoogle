@@ -111,6 +111,55 @@ func getExchangeMethods(
 		)
 	}
 
+	if csvItem.IsCollectable {
+		collectableItem, ok := (*dataCollection.CollectablesShopItem)[csvItem.Id]
+
+		if ok {
+			itemGroupName := ""
+			if collectableItemGroup, ok := (*dataCollection.CollectablesShopItemGroup)[collectableItem.ItemGroup]; ok {
+				itemGroupName = collectableItemGroup.Name
+			}
+
+			rewardCurrency := 0
+			rewardCount := 0
+			if rewards, ok := (*dataCollection.CollectableShopRewardScrip)[collectableItem.RewardScrip]; ok {
+				rewardCurrency = rewards.Currency
+				rewardCount = rewards.HighReward
+			}
+
+			currencyType := readertype.DefaultCurrency
+			if rewardCurrency > 0 {
+				switch rewardCurrency {
+				case 2:
+					currencyType = readertype.WhiteCraftersScrip
+					break
+				case 4:
+					currencyType = readertype.WhiteGatherersScrip
+					break
+				case 6:
+					currencyType = readertype.PurpleCraftersScrip
+					break
+				case 7:
+					currencyType = readertype.PurpleGatherersScrip
+					break
+				}
+			}
+
+			if rewardCount > 0 && currencyType != readertype.DefaultCurrency {
+				exchangeMethods = append(
+					exchangeMethods,
+					exchange.CurrencyExchange{
+						CurrencyType: currencyType,
+						ShopName:     itemGroupName,
+						Npc:          "Collectable Appraiser",
+						Price:        rewardCount,
+						Quantity:     1,
+					},
+				)
+			}
+		}
+	}
+
 	if len(exchangeMethods) > 0 {
 		return &exchangeMethods, nil
 	}

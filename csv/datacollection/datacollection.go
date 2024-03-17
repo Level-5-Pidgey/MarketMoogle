@@ -127,6 +127,24 @@ func CreateDataCollection() (*DataCollection, error) {
 				FileName:   "SpecialShop",
 			},
 		},
+		csv.UngroupedXivCsvReader[readertype.CollectablesShopItem]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.CollectablesShopItem]{
+				RowsToSkip: 4,
+				FileName:   "CollectablesShopItem",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.CollectableShopRewardScrip]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.CollectableShopRewardScrip]{
+				RowsToSkip: 4,
+				FileName:   "CollectablesShopRewardScrip",
+			},
+		},
+		csv.UngroupedXivCsvReader[readertype.CollectablesShopItemGroup]{
+			GenericXivCsvReader: csv.GenericXivCsvReader[readertype.CollectablesShopItemGroup]{
+				RowsToSkip: 4,
+				FileName:   "CollectablesShopItemGroup",
+			},
+		},
 	}
 
 	var wg sync.WaitGroup
@@ -169,22 +187,25 @@ func CreateDataCollection() (*DataCollection, error) {
 		recipes         map[int][]*readertype.Recipe
 
 		// Ungrouped
-		items                map[int]*readertype.Item
-		recipeBooks          map[int]*readertype.RecipeBook
-		recipeLevels         map[int]*readertype.RecipeLevel
-		craftTypes           map[int]*readertype.CraftType
-		classJobCategories   map[int]*readertype.ClassJobCategory
-		itemUiCategories     map[int]*readertype.ItemUiCategory
-		itemSearchCategories map[int]*readertype.ItemSearchCategory
-		gilShopItems         map[int]*readertype.GilShopItem
-		gcScripShopItems     map[int]*readertype.GcScripShopItem
-		gatheringItems       map[int]*readertype.GatheringItem
-		gatheringPointBases  map[int]*readertype.GatheringPointBase
-		gatheringItemLevels  map[int]*readertype.GatheringItemLevel
-		gatheringTypes       map[int]*readertype.GatheringType
-		placeNames           map[int]*readertype.PlaceName
-		territoryTypes       map[int]*readertype.TerritoryType
-		specialShopItems     map[int]*readertype.SpecialShop
+		items                      map[int]*readertype.Item
+		recipeBooks                map[int]*readertype.RecipeBook
+		recipeLevels               map[int]*readertype.RecipeLevel
+		craftTypes                 map[int]*readertype.CraftType
+		classJobCategories         map[int]*readertype.ClassJobCategory
+		itemUiCategories           map[int]*readertype.ItemUiCategory
+		itemSearchCategories       map[int]*readertype.ItemSearchCategory
+		gilShopItems               map[int]*readertype.GilShopItem
+		gcScripShopItems           map[int]*readertype.GcScripShopItem
+		gatheringItems             map[int]*readertype.GatheringItem
+		gatheringPointBases        map[int]*readertype.GatheringPointBase
+		gatheringItemLevels        map[int]*readertype.GatheringItemLevel
+		gatheringTypes             map[int]*readertype.GatheringType
+		placeNames                 map[int]*readertype.PlaceName
+		territoryTypes             map[int]*readertype.TerritoryType
+		specialShopItems           map[int]*readertype.SpecialShop
+		collectablesShopItem       map[int]*readertype.CollectablesShopItem
+		collectableShopRewardScrip map[int]*readertype.CollectableShopRewardScrip
+		collectableShopItemGroup   map[int]*readertype.CollectablesShopItemGroup
 	)
 
 	results := make([]csvResults, 0)
@@ -222,11 +243,14 @@ func CreateDataCollection() (*DataCollection, error) {
 
 	dataCollection := DataCollection{
 		GatheringDataCollection: GatheringDataCollection{
-			GatheringItems:      &gatheringItems,
-			GatheringPointBases: &gatheringPointBases,
-			GatheringItemLevels: &gatheringItemLevels,
-			GatheringTypes:      &gatheringTypes,
-			GatheringPoints:     &gatheringPoints,
+			GatheringItems:             &gatheringItems,
+			GatheringPointBases:        &gatheringPointBases,
+			GatheringItemLevels:        &gatheringItemLevels,
+			GatheringTypes:             &gatheringTypes,
+			GatheringPoints:            &gatheringPoints,
+			CollectablesShopItem:       &collectablesShopItem,
+			CollectableShopRewardScrip: &collectableShopRewardScrip,
+			CollectablesShopItemGroup:  &collectableShopItemGroup,
 		},
 		RecipeDataCollection: RecipeDataCollection{
 			Recipes:      &recipes,
@@ -324,6 +348,18 @@ func CreateDataCollection() (*DataCollection, error) {
 		case "SpecialShop":
 			if data, ok := result.data.(map[int]*readertype.SpecialShop); ok {
 				specialShopItems = data
+			}
+		case "CollectablesShopItem":
+			if data, ok := result.data.(map[int]*readertype.CollectablesShopItem); ok {
+				collectablesShopItem = data
+			}
+		case "CollectablesShopRewardScrip":
+			if data, ok := result.data.(map[int]*readertype.CollectableShopRewardScrip); ok {
+				collectableShopRewardScrip = data
+			}
+		case "CollectablesShopItemGroup":
+			if data, ok := result.data.(map[int]*readertype.CollectablesShopItemGroup); ok {
+				collectableShopItemGroup = data
 			}
 		}
 	}

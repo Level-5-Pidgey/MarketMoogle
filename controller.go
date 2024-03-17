@@ -9,6 +9,8 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/util"
 	"net/http"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -30,14 +32,31 @@ func (c Controller) getDcIdFromWorldId(queryWorldId int) int {
 	return dcId
 }
 
+func (c Controller) getWorldIdFromRequest(r *http.Request) int {
+	param := chi.URLParam(r, "worldId")
+
+	if serverId, err := strconv.Atoi(param); err == nil {
+		return serverId
+	}
+
+	for _, world := range *c.worlds {
+		if strings.ToLower(world.Name) == strings.ToLower(param) {
+			return world.Id
+		}
+	}
+
+	return 0
+}
+
 func (c Controller) GetItemProfit(w http.ResponseWriter, r *http.Request) {
 	itemId := util.SafeStringToInt(chi.URLParam(r, "itemId"))
-	queryWorldId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
+	queryWorldId := c.getWorldIdFromRequest(r)
 	dcId := c.getDcIdFromWorldId(queryWorldId)
 
 	playerInfo := profitCalc.PlayerInfo{
 		HomeServer:       queryWorldId,
 		DataCenter:       dcId,
+		SkipCrystals:     true,
 		GrandCompanyRank: readertype.Captain,
 		JobLevels: map[readertype.Job]int{
 			readertype.JobCarpenter:     90,
@@ -75,12 +94,13 @@ func (c Controller) GetItemProfit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c Controller) GetAllItemProfit(w http.ResponseWriter, r *http.Request) {
-	worldId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
+	worldId := c.getWorldIdFromRequest(r)
 	dcId := c.getDcIdFromWorldId(worldId)
 
 	playerInfo := profitCalc.PlayerInfo{
 		HomeServer:       worldId,
 		DataCenter:       dcId,
+		SkipCrystals:     true,
 		GrandCompanyRank: readertype.Captain,
 		JobLevels: map[readertype.Job]int{
 			readertype.JobCarpenter:     90,
@@ -191,14 +211,15 @@ func (c Controller) GetAllItemProfit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c Controller) GetCurrencyProfit(w http.ResponseWriter, r *http.Request) {
-	serverId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
+func (c Controller) GetGilValueOfCurrency(w http.ResponseWriter, r *http.Request) {
+	serverId := c.getWorldIdFromRequest(r)
 	currency := chi.URLParam(r, "currency")
 	dcId := c.getDcIdFromWorldId(serverId)
 
 	playerInfo := profitCalc.PlayerInfo{
 		HomeServer:       serverId,
 		DataCenter:       dcId,
+		SkipCrystals:     true,
 		GrandCompanyRank: readertype.Captain,
 		JobLevels: map[readertype.Job]int{
 			readertype.JobCarpenter:     90,
@@ -217,7 +238,7 @@ func (c Controller) GetCurrencyProfit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	exchangeType := readertype.FromApiParam(currency)
-	value, err := c.profitCalc.GetSellValueForCurrency(exchangeType.String(), &playerInfo)
+	value, err := c.profitCalc.GetGilValueForCurrency(exchangeType.String(), &playerInfo)
 
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
@@ -230,14 +251,15 @@ func (c Controller) GetCurrencyProfit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c Controller) GetCostToAcquireCurrency(w http.ResponseWriter, r *http.Request) {
-	serverId := util.SafeStringToInt(chi.URLParam(r, "worldId"))
+func (c Controller) GetBestItemToSellForCurrency(w http.ResponseWriter, r *http.Request) {
+	serverId := c.getWorldIdFromRequest(r)
 	currency := chi.URLParam(r, "currency")
 	dcId := c.getDcIdFromWorldId(serverId)
 
 	playerInfo := profitCalc.PlayerInfo{
 		HomeServer:       serverId,
 		DataCenter:       dcId,
+		SkipCrystals:     true,
 		GrandCompanyRank: readertype.Captain,
 		JobLevels: map[readertype.Job]int{
 			readertype.JobCarpenter:     90,
@@ -256,14 +278,94 @@ func (c Controller) GetCostToAcquireCurrency(w http.ResponseWriter, r *http.Requ
 	}
 
 	exchangeType := readertype.FromApiParam(currency)
-	obtainMethod, err := c.profitCalc.GetCheapestWayToObtainCurrency(exchangeType.String(), &playerInfo)
+	sale, err := c.profitCalc.GetBestItemToSellForCurrency(exchangeType.String(), &playerInfo)
 
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
 		return
 	}
 
-	err = util.WriteJSON(w, http.StatusOK, obtainMethod)
+	err = util.WriteJSON(w, http.StatusOK, sale)
+	if err != nil {
+		util.ErrorJSON(w, err, http.StatusNotFound)
+	}
+}
+
+func (c Controller) GetCheapestAcquisitionOfCurrency(w http.ResponseWriter, r *http.Request) {
+	serverId := c.getWorldIdFromRequest(r)
+	currency := chi.URLParam(r, "currency")
+	dcId := c.getDcIdFromWorldId(serverId)
+
+	playerInfo := profitCalc.PlayerInfo{
+		HomeServer:       serverId,
+		DataCenter:       dcId,
+		SkipCrystals:     true,
+		GrandCompanyRank: readertype.Captain,
+		JobLevels: map[readertype.Job]int{
+			readertype.JobCarpenter:     90,
+			readertype.JobBlacksmith:    90,
+			readertype.JobArmourer:      90,
+			readertype.JobGoldsmith:     90,
+			readertype.JobLeatherworker: 90,
+			readertype.JobWeaver:        90,
+			readertype.JobAlchemist:     90,
+			readertype.JobCulinarian:    90,
+			readertype.JobMiner:         90,
+			readertype.JobBotanist:      90,
+			readertype.JobFisher:        90,
+			readertype.JobPaladin:       90,
+		},
+	}
+
+	exchangeType := readertype.FromApiParam(currency)
+	minCost, err := c.profitCalc.GetCheapestAcquisitionMethodForCurrency(exchangeType.String(), &playerInfo)
+
+	if err != nil {
+		util.ErrorJSON(w, err, http.StatusNotFound)
+		return
+	}
+
+	err = util.WriteJSON(w, http.StatusOK, minCost)
+	if err != nil {
+		util.ErrorJSON(w, err, http.StatusNotFound)
+	}
+}
+
+func (c Controller) GetCostToAcquireCurrency(w http.ResponseWriter, r *http.Request) {
+	serverId := c.getWorldIdFromRequest(r)
+	currency := chi.URLParam(r, "currency")
+	dcId := c.getDcIdFromWorldId(serverId)
+
+	playerInfo := profitCalc.PlayerInfo{
+		HomeServer:       serverId,
+		DataCenter:       dcId,
+		SkipCrystals:     true,
+		GrandCompanyRank: readertype.Captain,
+		JobLevels: map[readertype.Job]int{
+			readertype.JobCarpenter:     90,
+			readertype.JobBlacksmith:    90,
+			readertype.JobArmourer:      90,
+			readertype.JobGoldsmith:     90,
+			readertype.JobLeatherworker: 90,
+			readertype.JobWeaver:        90,
+			readertype.JobAlchemist:     90,
+			readertype.JobCulinarian:    90,
+			readertype.JobMiner:         90,
+			readertype.JobBotanist:      90,
+			readertype.JobFisher:        90,
+			readertype.JobPaladin:       90,
+		},
+	}
+
+	exchangeType := readertype.FromApiParam(currency)
+	minCost, err := c.profitCalc.GetMinCostOfCurrency(exchangeType.String(), &playerInfo)
+
+	if err != nil {
+		util.ErrorJSON(w, err, http.StatusNotFound)
+		return
+	}
+
+	err = util.WriteJSON(w, http.StatusOK, minCost)
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
 	}

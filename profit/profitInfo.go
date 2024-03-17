@@ -6,7 +6,6 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/db"
 	"github.com/level-5-pidgey/MarketMoogle/profit/exchange"
-	"log"
 	"math"
 	"sort"
 	"sync"
@@ -21,7 +20,8 @@ type ProfitCalculator struct {
 }
 
 const (
-	maxLevel = 90
+	maxLevel           = 90
+	noMethodFoundError = "no exchangeType method found for exchangeType"
 )
 
 func NewProfitCalculator(
@@ -150,13 +150,13 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 
 				exchangeType := exchangeMethod.GetExchangeType()
 				// Get equivalent gil value for this currency
-				gilValue, err := p.GetSellValueForCurrency(exchangeType, info)
+				gilValue, _, err := p.getGilValueAndBestSaleForCurrency(exchangeType, info)
 
 				if err != nil {
 					continue
 				}
 
-				gilCost := int(float64(exchangeMethod.GetQuantity()) * gilValue)
+				gilCost := int(float64(exchangeMethod.GetCost()) * gilValue)
 
 				currentMethod.ExchangeType = exchangeType
 				currentMethod.Value = gilCost
@@ -256,51 +256,44 @@ func (p *ProfitCalculator) GetCheapestObtainMethod(
 	}
 
 	if item.CraftingRecipes != nil {
-		cheapestMethod = p.craftingObtainMethod(item, numRequired, cheapestMethod, player)
+		cheapestMethod = p.craftingObtainMethod(item, numRequired, listings, cheapestMethod, player)
 	}
 
 	return cheapestMethod
 }
 
-func (p *ProfitCalculator) getIngredientsForRecipe(
-	itemsAndQuantities *map[int]int, numRequired int, recipe *RecipeInfo, skipCrystals bool,
-) *map[int]int {
+func (p *ProfitCalculator) getPossibleSubItems(
+	itemsAndQuantities map[int]struct{}, item *Item, skipCrystals bool,
+) map[int]struct{} {
 	if itemsAndQuantities == nil {
-		newMap := make(map[int]int)
-		itemsAndQuantities = &newMap
+		newMap := make(map[int]struct{})
+		itemsAndQuantities = newMap
 	}
 
-	for _, ingredient := range recipe.RecipeIngredients {
-		ingredientItem, ok := (*p.Items)[ingredient.ItemId]
+	for _, recipe := range *item.CraftingRecipes {
+		for _, ingredient := range recipe.RecipeIngredients {
+			ingredientItem, ok := (*p.Items)[ingredient.ItemId]
 
-		if !ok {
-			continue
-		}
+			if !ok {
+				continue
+			}
 
-		// TODO remove this magic number, get correct value dynamically from csv load
-		if ingredientItem.UiCategory == 59 && skipCrystals {
-			continue
-		}
+			// TODO remove this magic number, get correct value dynamically from csv load
+			if ingredientItem.UiCategory == 59 && skipCrystals {
+				continue
+			}
 
-		if ingredientItem.CraftingRecipes != nil {
-			for _, craftingRecipe := range *ingredientItem.CraftingRecipes {
-				// For each crafting recipe the ingredient has
-				// Calculate the number of times it takes to get this item
-				numIngredientRequired := numRequired * craftingRecipe.Yield
-
-				itemsAndQuantities = p.getIngredientsForRecipe(
+			if ingredientItem.CraftingRecipes != nil {
+				itemsAndQuantities = p.getPossibleSubItems(
 					itemsAndQuantities,
-					numIngredientRequired,
-					&craftingRecipe,
+					ingredientItem,
 					skipCrystals,
 				)
-			}
-		} else {
-			// There is no sub recipe, we should be updating the itemsAndQuantities map
-			if _, ok := (*itemsAndQuantities)[ingredient.ItemId]; ok {
-				(*itemsAndQuantities)[ingredient.ItemId] += (ingredient.Quantity * numRequired) / recipe.Yield
 			} else {
-				(*itemsAndQuantities)[ingredient.ItemId] = (ingredient.Quantity * numRequired) / recipe.Yield
+				// There is no sub recipe, we should be updating the itemsAndQuantities map
+				if _, ok := itemsAndQuantities[ingredient.ItemId]; !ok {
+					itemsAndQuantities[ingredient.ItemId] = struct{}{} // Empty struct with size of 0
+				}
 			}
 		}
 	}
@@ -309,7 +302,7 @@ func (p *ProfitCalculator) getIngredientsForRecipe(
 }
 
 func (p *ProfitCalculator) craftingObtainMethod(
-	item *Item, numRequired int, cheapestMethod *ObtainMethod, player *PlayerInfo,
+	item *Item, numRequired int, listings *[]*db.Listing, cheapestMethod *ObtainMethod, player *PlayerInfo,
 ) *ObtainMethod {
 	for _, craftingRecipe := range *item.CraftingRecipes {
 		// Check if the player is capable of crafting this recipe
@@ -339,20 +332,8 @@ func (p *ProfitCalculator) craftingObtainMethod(
 				continue
 			}
 
-			var ingredientListings *[]*db.Listing = nil
-			if !ingredientItem.MarketProhibited {
-				ingredientResults, err := p.repository.GetListingsForItemOnDataCenter(
-					ingredientItem.Id,
-					player.DataCenter,
-				)
-
-				ingredientListings = ingredientResults
-				if err != nil {
-					log.Printf(
-						"Error getting listings for item %d on data center %d: %s",
-						ingredientItem.Id, player.DataCenter, err,
-					)
-				}
+			if player.SkipCrystals && ingredientItem.UiCategory == 59 && ingredientItem.Id < 20 {
+				continue
 			}
 
 			ingredientQuantity := (ingredient.Quantity*numRequired + craftingRecipe.Yield - 1) / craftingRecipe.Yield
@@ -361,7 +342,7 @@ func (p *ProfitCalculator) craftingObtainMethod(
 			ingredientObtain := p.GetCheapestObtainMethod(
 				ingredientItem,
 				ingredientQuantity,
-				ingredientListings,
+				listings,
 				player,
 			)
 
@@ -488,7 +469,7 @@ func (p *ProfitCalculator) nonMarketObtainMethod(
 	item *Item, numRequired int, cheapestMethod *ObtainMethod, info *PlayerInfo,
 ) *ObtainMethod {
 	for _, obtainMethod := range *item.ObtainMethods {
-		obtainCost := 500
+		obtainCost := 1500
 
 		switch obtainMethod.GetExchangeType() {
 		case readertype.GrandCompanySeal:
@@ -500,7 +481,7 @@ func (p *ProfitCalculator) nonMarketObtainMethod(
 			obtainCost = obtainMethod.GetCostPerItem()
 			break
 		default:
-			currencyObtain, err := p.GetCheapestWayToObtainCurrency(obtainMethod.GetExchangeType(), info)
+			currencyObtain, err := p.getCheapestMethodToObtainCurrency(obtainMethod.GetExchangeType(), info)
 
 			if err == nil && currencyObtain != nil {
 				obtainCost = currencyObtain.GetCostPerItem() * obtainMethod.GetQuantity()
@@ -631,11 +612,22 @@ func (p *ProfitCalculator) salesPerHour(sales *[]*db.Sale, dayRange int) float64
 }
 
 func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) (*ProfitInfo, error) {
+	// Pre-calculate all items that could be involved in the obtaining of this item
+	itemIds := make([]int, 0, 10)
+	if item.CraftingRecipes != nil {
+		itemMap := p.getPossibleSubItems(nil, item, info.SkipCrystals)
+		for itemId := range itemMap {
+			itemIds = append(itemIds, itemId)
+		}
+	} else if !item.MarketProhibited {
+		itemIds = append(itemIds, item.Id)
+	}
+
 	// Get market listings for item if this item is sellable
 	var listings *[]*db.Listing = nil
 	var listingsOnPlayerWorld []*db.Listing
-	if !item.MarketProhibited {
-		listingResults, err := p.repository.GetListingsForItemOnDataCenter(item.Id, info.DataCenter)
+	if len(itemIds) > 0 {
+		listingResults, err := p.repository.GetListingsForItemsOnDataCenter(itemIds, info.DataCenter)
 		listings = listingResults
 		if err != nil {
 			return nil, err
@@ -688,16 +680,16 @@ func calculateProfitScore(bestSale *SaleMethod, cost int, effort float64) float6
 	return profitScore
 }
 
-func (p *ProfitCalculator) GetSellValueForCurrency(exchange string, info *PlayerInfo) (
-	float64, error,
+func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, info *PlayerInfo) (
+	float64, *SaleMethod, error,
 ) {
 	if p.currencyByObtainMethod == nil {
-		return 0, errors.New("map of currencies by exchange method is nil")
+		return 0, nil, errors.New("map of currencies by currency method is nil")
 	}
 
-	itemsWithObtainMethod, ok := (*p.currencyByObtainMethod)[exchange]
+	itemsWithObtainMethod, ok := (*p.currencyByObtainMethod)[currency]
 	if !ok {
-		return 0, errors.New("no exchange method found for exchange")
+		return 0, nil, errors.New("no currency method found for currency")
 	}
 
 	itemIds := make([]int, 0, len(itemsWithObtainMethod))
@@ -710,26 +702,27 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange string, info *Player
 	}
 
 	if len(itemIds) == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
 
 	listings, err := p.repository.GetListingsForItemsOnWorld(itemIds, info.HomeServer)
 	if err != nil {
-		return 0, nil
+		return 0, nil, nil
 	}
 
 	sales, err := p.repository.GetSalesForItemsOnWorld(itemIds, info.HomeServer)
 	if err != nil {
-		return 0, nil
+		return 0, nil, nil
 	}
 
 	wg := sync.WaitGroup{}
-	type scorePerCurrency struct {
+	type scoreAndSale struct {
 		score       float64
 		perCurrency float64
 		item        *Item
+		sale        *SaleMethod
 	}
-	scoreChan := make(chan scorePerCurrency)
+	scoreChan := make(chan scoreAndSale)
 
 	for _, item := range itemsWithObtainMethod {
 		wg.Add(1)
@@ -765,7 +758,7 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange string, info *Player
 			effortFactor := 1.0
 			adjustedQuantity := 1
 			for _, obtainMethod := range *item.ObtainMethods {
-				if obtainMethod.GetExchangeType() != exchange {
+				if obtainMethod.GetExchangeType() != currency {
 					continue
 				}
 
@@ -777,10 +770,11 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange string, info *Player
 			}
 
 			currentScore := calculateProfitScore(itemSale, cost, effortFactor)
-			scoreChan <- scorePerCurrency{
+			scoreChan <- scoreAndSale{
 				score:       currentScore,
 				perCurrency: float64(itemSale.ValuePer) / float64(adjustedQuantity),
 				item:        item,
+				sale:        itemSale,
 			}
 		}(item, listings, sales, info)
 	}
@@ -790,7 +784,7 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange string, info *Player
 		close(scoreChan)
 	}()
 
-	best := scorePerCurrency{
+	best := scoreAndSale{
 		score:       0,
 		perCurrency: 0,
 		item:        nil,
@@ -801,19 +795,39 @@ func (p *ProfitCalculator) GetSellValueForCurrency(exchange string, info *Player
 		}
 	}
 
-	return best.perCurrency, nil
+	return best.perCurrency, best.sale, nil
 }
 
-func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(exchangeType string, info *PlayerInfo) (
+func (p *ProfitCalculator) GetBestItemToSellForCurrency(currency string, info *PlayerInfo) (*SaleMethod, error) {
+	_, sale, err := p.getGilValueAndBestSaleForCurrency(currency, info)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return sale, nil
+}
+
+func (p *ProfitCalculator) GetGilValueForCurrency(currency string, info *PlayerInfo) (float64, error) {
+	gilEquivalent, _, err := p.getGilValueAndBestSaleForCurrency(currency, info)
+
+	if err != nil {
+		return 0.0, err
+	}
+
+	return gilEquivalent, nil
+}
+
+func (p *ProfitCalculator) getCheapestMethodToObtainCurrency(currency string, info *PlayerInfo) (
 	*ObtainMethod, error,
 ) {
 	if p.currencyByExchangeMethod == nil {
 		return nil, errors.New("map of currencies by obtain method is nil")
 	}
 
-	itemsWithExchangeMethod, ok := (*p.currencyByExchangeMethod)[exchangeType]
+	itemsWithExchangeMethod, ok := (*p.currencyByExchangeMethod)[currency]
 	if !ok {
-		return nil, errors.New("no exchangeType method found for exchangeType")
+		return nil, errors.New(noMethodFoundError)
 	}
 
 	itemIds := make([]int, 0, len(itemsWithExchangeMethod))
@@ -847,7 +861,7 @@ func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(exchangeType string, i
 
 			costPerToken := 0.0
 			for _, exchangeMethod := range *item.ExchangeMethods {
-				if exchangeMethod.GetExchangeType() != exchangeType {
+				if exchangeMethod.GetExchangeType() != currency {
 					continue
 				}
 
@@ -878,4 +892,35 @@ func (p *ProfitCalculator) GetCheapestWayToObtainCurrency(exchangeType string, i
 	}
 
 	return bestMethod, nil
+}
+
+func (p *ProfitCalculator) GetMinCostOfCurrency(currency string, info *PlayerInfo) (int, error) {
+	cheapestMethod, err := p.getCheapestMethodToObtainCurrency(currency, info)
+
+	// It's okay if there's no way to obtain this currency
+	if err != nil && err.Error() == noMethodFoundError {
+		if err.Error() == noMethodFoundError {
+			return 0, nil
+		}
+
+		return 0, err
+	}
+
+	return cheapestMethod.GetCost(), nil
+}
+
+func (p *ProfitCalculator) GetCheapestAcquisitionMethodForCurrency(currency string, info *PlayerInfo) (
+	*ObtainMethod, error,
+) {
+	cheapestMethod, err := p.getCheapestMethodToObtainCurrency(currency, info)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if cheapestMethod == nil {
+		return nil, errors.New("could not find a cheap method to obtain this currency")
+	}
+
+	return cheapestMethod, nil
 }

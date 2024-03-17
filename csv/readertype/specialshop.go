@@ -2,6 +2,8 @@ package readertype
 
 import (
 	"github.com/level-5-pidgey/MarketMoogle/util"
+	"log"
+	"strings"
 )
 
 const (
@@ -40,9 +42,10 @@ func (s SpecialShop) GetKey() int {
 }
 
 func (s SpecialShop) CreateFromCsvRow(record []string) (*SpecialShop, error) {
+	shopName := record[1]
 	result := SpecialShop{
 		Key:      util.SafeStringToInt(record[0]),
-		ShopName: record[1],
+		ShopName: shopName,
 		Windows:  make([]ShopWindow, 0, maxPerShop),
 	}
 
@@ -69,10 +72,11 @@ func (s SpecialShop) CreateFromCsvRow(record []string) (*SpecialShop, error) {
 			- Patch Number [0]
 	*/
 
-	for i := 2; i < maxPerShop; i++ {
+	for i := 0; i < maxPerShop; i++ {
+		index := i + 2
 		items := make([]ItemReceived, 0, 2)
 		for ii := 0; ii < 2; ii++ {
-			item := getItem(record, i, ii)
+			item := getItem(record, index, ii)
 
 			if item.ItemReceived > 1 {
 				items = append(items, item)
@@ -81,7 +85,7 @@ func (s SpecialShop) CreateFromCsvRow(record []string) (*SpecialShop, error) {
 
 		exchanges := make([]CostToBuy, 0, 3)
 		for iii := 0; iii < 3; iii++ {
-			exchange := getExchange(record, i, iii)
+			exchange := getExchange(record, shopName, index, iii)
 
 			if exchange.CostItem > 1 && exchange.Quantity != 0 {
 				exchanges = append(exchanges, exchange)
@@ -111,35 +115,98 @@ func (s SpecialShop) CreateFromCsvRow(record []string) (*SpecialShop, error) {
 }
 
 func getItem(record []string, index, offset int) ItemReceived {
+	itemOffset := offset * 4
+
 	return ItemReceived{
-		ItemReceived: util.SafeStringToInt(record[index+(offset*maxPerShop)]),
-		Quantity:     util.SafeStringToInt(record[index+((offset+1)*maxPerShop)]),
-		Category:     util.SafeStringToInt(record[index+((offset+2)*maxPerShop)]),
-		IsHq:         util.SafeStringToBool(record[index+((offset+3)*maxPerShop)]),
+		ItemReceived: util.SafeStringToInt(record[index+(itemOffset*maxPerShop)]),
+		Quantity:     util.SafeStringToInt(record[index+((itemOffset+1)*maxPerShop)]),
+		Category:     util.SafeStringToInt(record[index+((itemOffset+2)*maxPerShop)]),
+		IsHq:         util.SafeStringToBool(record[index+((itemOffset+3)*maxPerShop)]),
 	}
 }
 
-func getExchange(record []string, index, offset int) CostToBuy {
-	costItem := util.SafeStringToInt(record[index+((offset+8)*maxPerShop)])
+func isCrafterGathererShop(shopName string) bool {
+	shopNameLower := strings.ToLower(shopName)
+	possibleNames := []string{
+		"scrip exchange",
+		"bait/",
+		"master recipe",
+		"materia",
+		"folklore",
+		"landsaint",
+		"handsaint",
+		"professional",
+		"materials",
+		"miscellany",
+		"(doh)",
+		"(dol)",
+	}
+
+	for _, name := range possibleNames {
+		if strings.Contains(shopNameLower, name) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func convertItem(shopName string, costItem *int) {
+	result := *costItem
+
+	if isCrafterGathererShop(shopName) {
+		switch result {
+		case 1:
+			result = ToItemId(PoeticTomestone)
+			break
+		case 2:
+			result = ToItemId(WhiteCraftersScrip)
+			break
+		case 4:
+			result = ToItemId(WhiteGatherersScrip)
+			break
+		case 6:
+			result = ToItemId(PurpleCraftersScrip)
+			break
+		case 7:
+			result = ToItemId(PurpleGatherersScrip)
+			break
+		default:
+			log.Printf("Unknown gatherer/crafter cost item %d for %s", result, shopName)
+		}
+	} else {
+		switch result {
+		case 1:
+			result = ToItemId(PoeticTomestone)
+			break
+		case 2:
+			result = ToItemId(UncappedTomestone)
+			break
+		case 3:
+			result = ToItemId(CappedTomestone)
+			break
+		default:
+			log.Printf("Unknown combat cost item %d for %s", result, shopName)
+		}
+	}
+
+	*costItem = result
+}
+
+func getExchange(record []string, shopName string, index, offset int) CostToBuy {
+	exchangeOffset := offset * 4
+	costItem := util.SafeStringToInt(record[index+((exchangeOffset+8)*maxPerShop)])
+	quantity := util.SafeStringToInt(record[index+((exchangeOffset+9)*maxPerShop)])
 
 	// The ids here for some currencies don't line up so we have to manually fix them
-	if costItem < 10 {
-		switch costItem {
-		case 2:
-			costItem = ToItemId(UncappedTomestone)
-		case 3:
-			costItem = ToItemId(CappedTomestone)
-		case 6:
-			costItem = ToItemId(PurpleCraftersScrip)
-		case 7:
-			costItem = ToItemId(PurpleGatherersScrip)
-		}
+	if costItem != 0 && costItem < 10 && quantity > 0 {
+		convertItem(shopName, &costItem)
 	}
 
 	return CostToBuy{
 		CostItem:       costItem,
-		Quantity:       util.SafeStringToInt(record[index+((offset+9)*maxPerShop)]),
-		IsHq:           util.SafeStringToBool(record[index+((offset+10)*maxPerShop)]),
-		Collectability: util.SafeStringToInt(record[index+((offset+11)*maxPerShop)]),
+		Quantity:       util.SafeStringToInt(record[index+((exchangeOffset+9)*maxPerShop)]),
+		IsHq:           util.SafeStringToBool(record[index+((exchangeOffset+10)*maxPerShop)]),
+		Collectability: util.SafeStringToInt(record[index+((exchangeOffset+11)*maxPerShop)]),
 	}
 }

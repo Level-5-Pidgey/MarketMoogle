@@ -3,6 +3,7 @@ package profitCalc
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 )
 
@@ -86,6 +87,12 @@ type ShoppingCart struct {
 }
 
 func (currentCart *ShoppingCart) MarshalJSON() ([]byte, error) {
+	sort.Slice(
+		currentCart.ItemsToBuy, func(i, j int) bool {
+			return currentCart.ItemsToBuy[i].GetItemId() < currentCart.ItemsToBuy[j].GetItemId()
+		},
+	)
+
 	return json.Marshal(currentCart.ItemsToBuy)
 }
 
