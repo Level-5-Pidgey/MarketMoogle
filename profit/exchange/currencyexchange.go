@@ -43,8 +43,8 @@ func (c CurrencyExchange) GetQuantity() int {
 	return c.Quantity
 }
 
-func (c CurrencyExchange) GetCostPerItem() int {
-	return c.Price / c.Quantity
+func (c CurrencyExchange) GetCostPerItem() float64 {
+	return float64(c.Price) / float64(c.Quantity)
 }
 
 func (c CurrencyExchange) GetEffortFactor() float64 {

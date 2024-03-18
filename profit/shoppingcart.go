@@ -3,6 +3,7 @@ package profitCalc
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 )
@@ -44,15 +45,15 @@ type LocalItem struct {
 	ItemId       int
 	Quantity     int
 	ObtainedFrom string
-	CostPer      int
+	CostPer      float64
 }
 
 func (l LocalItem) GetTotalCost() int {
-	return l.CostPer * l.Quantity
+	return l.GetCostPer() * l.Quantity
 }
 
 func (l LocalItem) GetCostPer() int {
-	return l.CostPer
+	return int(math.Ceil(l.CostPer))
 }
 
 func (l LocalItem) GetItemId() int {

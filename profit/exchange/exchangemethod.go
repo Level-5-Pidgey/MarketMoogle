@@ -16,7 +16,7 @@ type Method interface {
 
 	GetQuantity() int
 
-	GetCostPerItem() int
+	GetCostPerItem() float64
 
 	GetEffortFactor() float64
 }
@@ -75,11 +75,17 @@ func getGatheringInfo(
 		gatheringStars = levelInfo.Stars
 	}
 
+	isCollectible := false
+	item, ok := (*dataCollection.Items)[gatheringItem.ItemId]
+	if ok {
+		isCollectible = item.IsCollectable
+	}
 	return &GatheringInfo{
-		Points:   getGatheringPointsForItem(dataCollection, gatheringItem),
-		IsHidden: gatheringItem.IsHidden,
-		Level:    gatheringLevel,
-		Stars:    gatheringStars,
+		Points:        getGatheringPointsForItem(dataCollection, gatheringItem),
+		IsHidden:      gatheringItem.IsHidden,
+		Level:         gatheringLevel,
+		Stars:         gatheringStars,
+		IsCollectible: isCollectible,
 	}
 }
 
