@@ -8,7 +8,7 @@ type PlayerInfo struct {
 	DataCenter int
 
 	SkipCrystals bool
-	
+
 	GrandCompanyRank readertype.GrandCompanyRank
 
 	JobLevels map[readertype.Job]int

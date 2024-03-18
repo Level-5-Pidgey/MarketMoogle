@@ -6,18 +6,14 @@ import (
 	"github.com/go-chi/cors"
 	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
-	"github.com/level-5-pidgey/MarketMoogle/db"
 	profitCalc "github.com/level-5-pidgey/MarketMoogle/profit"
 	"net/http"
 )
 
 func Routes(
-	items *map[int]*profitCalc.Item,
-	itemsByObtainInfo *map[string]map[int]*profitCalc.Item,
-	itemsByExchangeMethod *map[string]map[int]*profitCalc.Item,
 	collection *dc.DataCollection,
 	worlds *map[int]*readertype.World,
-	db db.Repository,
+	profitCalc *profitCalc.ProfitCalculator,
 ) http.Handler {
 	router := chi.NewRouter()
 	router.Use(middleware.Recoverer)
@@ -38,7 +34,7 @@ func Routes(
 	controller := Controller{
 		dataCollection: collection,
 		worlds:         worlds,
-		profitCalc:     profitCalc.NewProfitCalculator(items, itemsByObtainInfo, itemsByExchangeMethod, db),
+		profitCalc:     profitCalc,
 	}
 
 	// Item Routes
@@ -48,8 +44,6 @@ func Routes(
 	// Currency
 	router.Get("/api/v1/server/{worldId}/currency/{currency}/value", controller.GetGilValueOfCurrency)
 	router.Get("/api/v1/server/{worldId}/currency/{currency}/best-sell", controller.GetBestItemToSellForCurrency)
-	router.Get("/api/v1/server/{worldId}/currency/{currency}/min-cost", controller.GetCostToAcquireCurrency)
-	router.Get("/api/v1/server/{worldId}/currency/{currency}/best-convert", controller.GetCheapestAcquisitionOfCurrency)
 
 	return router
 }

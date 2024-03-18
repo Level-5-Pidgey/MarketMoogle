@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	cache "github.com/go-pkgz/expirable-cache"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/level-5-pidgey/MarketMoogle/api/universalis"
@@ -15,7 +16,7 @@ import (
 	"github.com/level-5-pidgey/MarketMoogle/profit"
 	"github.com/level-5-pidgey/MarketMoogle/profit/exchange"
 	"gopkg.in/mgo.v2/bson"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -25,92 +26,6 @@ import (
 	"sync"
 	"time"
 )
-
-// NA/EU/OCE world Ids
-var oceWorldIds = []int{21, 22, 86, 88, 87}
-var worldIds = []int{
-	21,
-	22,
-	23,
-	24,
-	28,
-	29,
-	30,
-	31,
-	32,
-	33,
-	34,
-	35,
-	36,
-	37,
-	39,
-	40,
-	41,
-	42,
-	43,
-	44,
-	45,
-	46,
-	47,
-	48,
-	49,
-	50,
-	51,
-	52,
-	53,
-	54,
-	55,
-	56,
-	57,
-	58,
-	59,
-	60,
-	61,
-	62,
-	63,
-	64,
-	65,
-	66,
-	67,
-	68,
-	69,
-	70,
-	71,
-	72,
-	73,
-	74,
-	75,
-	76,
-	77,
-	78,
-	79,
-	80,
-	81,
-	82,
-	83,
-	85,
-	86,
-	87,
-	88,
-	90,
-	91,
-	92,
-	93,
-	94,
-	95,
-	96,
-	97,
-	98,
-	99,
-	400,
-	401,
-	402,
-	403,
-	404,
-	405,
-	406,
-	407,
-}
 
 const (
 	writeWait = 8 * time.Second
@@ -228,6 +143,9 @@ func main() {
 	}
 
 	worlds, dataCenters, err := getGameServers()
+
+	// Pre-add currency data to cache
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -242,6 +160,24 @@ func main() {
 		"host=%s port=%s user=%s password=%s dbname=%s timezone=UTC connect_timeout=5",
 		dbHost, dbPort, dbUser, dbPassword, dbName,
 	)
+
+	// Create cache
+	cacheTime := time.Minute * 10
+	c, err := cache.NewCache(cache.TTL(cacheTime))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Periodically empty cache of invalid values
+	cacheTicker := time.NewTicker(cacheTime / 2)
+	go func(c cache.Cache) {
+		for {
+			select {
+			case <-cacheTicker.C:
+				c.DeleteExpired()
+			}
+		}
+	}(c)
 
 	repository, err := db.InitRepository(dsn, worlds, dataCenters)
 	if err != nil {
@@ -260,9 +196,12 @@ func main() {
 		},
 	}
 
+	// Create Profit Calculator
+	p := profitCalc.NewProfitCalculator(&profitItems, &itemsByObtainInfo, &itemsByExchangeMethod, repository, c)
+
 	// Start up API server
 	go func() {
-		err = app.Serve(&profitItems, &itemsByObtainInfo, &itemsByExchangeMethod, collection, worlds, repository)
+		err = app.Serve(collection, worlds, p)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -347,7 +286,7 @@ func main() {
 	// Poll Universalis for Market data
 	wg := &sync.WaitGroup{}
 
-	for _, worldId := range worldIds {
+	for worldId := range *worlds {
 		wg.Add(1)
 		go dialUp(repository, wg, worldId)
 	}
@@ -367,7 +306,7 @@ func makeApiRequest[T any](url string) (*T, error) {
 		return nil, errors.New("522 code returned from api request")
 	}
 
-	body, readAllError := ioutil.ReadAll(resp.Body)
+	body, readAllError := io.ReadAll(resp.Body)
 	if readAllError != nil {
 		log.Fatal(readAllError)
 		return nil, readAllError
@@ -675,18 +614,15 @@ type Application struct {
 }
 
 func (app *Application) Serve(
-	items *map[int]*profitCalc.Item,
-	itemsByObtainInfo *map[string]map[int]*profitCalc.Item,
-	itemsByExchangeMethod *map[string]map[int]*profitCalc.Item,
 	collection *dc.DataCollection,
 	worlds *map[int]*readertype.World,
-	db db.Repository,
+	profitCalc *profitCalc.ProfitCalculator,
 ) error {
 	port := app.Config.Port
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
-		Handler: Routes(items, itemsByObtainInfo, itemsByExchangeMethod, collection, worlds, db),
+		Handler: Routes(collection, worlds, profitCalc),
 	}
 
 	return srv.ListenAndServe()
