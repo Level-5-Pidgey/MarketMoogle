@@ -62,12 +62,71 @@ func calculateCompetitionFactor(numOfListings int) float64 {
 	return 1 / (1 + math.Exp(sensitivity*float64(numOfListings)-competitionThreshold))
 }
 
+func calculateWeightedMedian(sales *[]*db.Sale) int {
+	now := time.Now().UTC()
+	maxDiff := float64(0)
+
+	if sales == nil {
+		return 0
+	}
+
+	salesLength := len(*sales)
+	if salesLength == 0 {
+		return 0
+	}
+
+	if salesLength == 1 {
+		return (*sales)[0].PricePer
+	}
+
+	type weightedSale struct {
+		price     int
+		score     float64
+		timestamp time.Time
+	}
+	weightedSales := make([]weightedSale, 0, salesLength)
+
+	for _, sale := range *sales {
+		diff := now.Sub(sale.Timestamp).Hours()
+		if diff > maxDiff {
+			maxDiff = diff
+		}
+	}
+
+	for _, sale := range *sales {
+		diff := now.Sub(sale.Timestamp).Hours()
+
+		weightedSales = append(
+			weightedSales, weightedSale{
+				price:     sale.PricePer,
+				score:     float64(sale.PricePer) * (1 - diff/maxDiff),
+				timestamp: sale.Timestamp,
+			},
+		)
+	}
+
+	sort.Slice(
+		weightedSales, func(i, j int) bool {
+			return weightedSales[i].score < weightedSales[j].score
+		},
+	)
+
+	return weightedSales[len(weightedSales)/2].price
+}
+
 // GetBestSaleMethod
 // Get the method of exchange that returns the most gil on this item.
 // Includes selling this item on the marketboard
 func (p *ProfitCalculator) GetBestSaleMethod(
-	item *Item, listings *[]*db.Listing, sales *[]*db.Sale, info *PlayerInfo, gilOnly bool,
+	item *Item, listings *[]*db.Listing, sales *[]*db.Sale, serverId int, gilOnly bool,
 ) *SaleMethod {
+	cacheKey := fmt.Sprintf("sale_%d_%d", item.Id, serverId)
+	if val, found := p.cache.Get(cacheKey); found {
+		saleMethod := val.(SaleMethod)
+
+		return &saleMethod
+	}
+	
 	var bestSale *SaleMethod
 
 	competitionFactor := 1.0
@@ -78,9 +137,16 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 		if (len(*listings)) > 0 {
 			competitionFactor = calculateCompetitionFactor(len(*listings))
 
+			// Get weighted median price for this item (so we can discard overly expensive recipes)
+			medianPrice := calculateWeightedMedian(sales)
 			for _, listing := range *listings {
 				// Only return values on the info's server (as that's the only place they can sell it)
-				if listing.WorldId != info.HomeServer {
+				if listing.WorldId != serverId {
+					continue
+				}
+
+				// Skip outrageous listing prices (that a player wouldn't realistically buy)
+				if listing.PricePer > medianPrice {
 					continue
 				}
 
@@ -110,18 +176,27 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 			from recent sales
 		*/
 		if bestSale == nil || bestSale.ValuePer == 0 {
-			if sales != nil {
-				if len(*sales) > 0 {
+			if sales != nil && len(*sales) > 0 {
+				filteredSales := make([]*db.Sale, 0, len(*sales))
+				daysAgo := time.Now().AddDate(0, 0, -salesDayRange).UTC()
+				for _, sale := range *sales {
+					if sale.WorldId == serverId && sale.Timestamp.After(daysAgo) {
+						filteredSales = append(filteredSales, sale)
+					}
+				}
+
+				if len(filteredSales) > 1 {
+					// Get average price
 					totalSaleValue := 0
 					totalQuantity := 0
 
-					for _, sale := range *sales {
+					for _, sale := range filteredSales {
 						totalSaleValue += sale.PricePer
 						totalQuantity += sale.Quantity
 					}
 
 					averageSale := totalSaleValue / totalQuantity
-					averageQuantity := totalQuantity / len(*sales)
+					averageQuantity := totalQuantity / len(filteredSales)
 
 					historySale := SaleMethod{
 						ExchangeType:      readertype.Marketboard, // TODO put info's world name here, change this to a more complex type
@@ -168,13 +243,13 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 				exchangeType := exchangeMethod.GetExchangeType()
 				gilValue := 0.0
 
-				cacheKey := fmt.Sprintf("cv_%s_%d", exchangeType, info.HomeServer)
+				cacheKey := fmt.Sprintf("cv_%s_%d", exchangeType, serverId)
 				if val, found := p.cache.Get(cacheKey); found {
 					gilValue = val.(float64)
 				} else {
 					// Cache miss: calculate the gil value
 					var err error
-					gilValue, _, err = p.getGilValueAndBestSaleForCurrency(exchangeType, info)
+					gilValue, _, err = p.getGilValueAndBestSaleForCurrency(exchangeType, serverId)
 					if err != nil {
 						// Handle error, possibly continue to next item
 						continue
@@ -199,6 +274,11 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 
 	if bestSale == nil || bestSale.Value == 0 {
 		return nil
+	}
+
+	// Cache the value of the currency
+	if _, exists := p.cache.Peek(cacheKey); !exists {
+		p.cache.Set(cacheKey, *bestSale, time.Minute*10)
 	}
 
 	return bestSale
@@ -663,13 +743,13 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 		}
 	}
 
-	sales, err := p.repository.GetSalesForItemOnWorld(item.Id, info.HomeServer)
+	sales, err := p.repository.GetSalesForItemOnDataCenter(item.Id, info.DataCenter)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get most value created when selling the item
-	bestSale := p.GetBestSaleMethod(item, &listingsOnPlayerWorld, sales, info, false)
+	bestSale := p.GetBestSaleMethod(item, &listingsOnPlayerWorld, sales, info.HomeServer, false)
 	if bestSale == nil {
 		// Sometimes there's no way to sell this item, and that's okay. We will just return early
 		return nil, nil
@@ -707,7 +787,7 @@ func calculateProfitScore(bestSale *SaleMethod, cost int, effort float64) float6
 	return profitScore
 }
 
-func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, info *PlayerInfo) (
+func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, serverId int) (
 	float64, *SaleMethod, error,
 ) {
 	if p.currencyByObtainMethod == nil {
@@ -739,12 +819,12 @@ func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, in
 		return 0, nil, nil
 	}
 
-	listings, err := p.repository.GetListingsForItemsOnWorld(itemIds, info.HomeServer)
+	listings, err := p.repository.GetListingsForItemsOnWorld(itemIds, serverId)
 	if err != nil {
 		return 0, nil, nil
 	}
 
-	sales, err := p.repository.GetSalesForItemsOnWorld(itemIds, info.HomeServer)
+	sales, err := p.repository.GetSalesForItemsOnWorld(itemIds, serverId)
 	if err != nil {
 		return 0, nil, nil
 	}
@@ -756,7 +836,7 @@ func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, in
 	for _, item := range itemsWithObtainMethod {
 		wg.Add(1)
 
-		go func(item *Item, listings *[]*db.Listing, sales *[]*db.Sale, info *PlayerInfo) {
+		go func(item *Item, listings *[]*db.Listing, sales *[]*db.Sale, serverId int) {
 			defer wg.Done()
 
 			filteredSales := make([]*db.Sale, 0, 100)
@@ -777,7 +857,7 @@ func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, in
 				filteredListings = append(filteredListings, listing)
 			}
 
-			itemSale := p.GetBestSaleMethod(item, &filteredListings, &filteredSales, info, true)
+			itemSale := p.GetBestSaleMethod(item, &filteredListings, &filteredSales, serverId, true)
 
 			if itemSale == nil {
 				return
@@ -807,7 +887,7 @@ func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, in
 			}
 
 			scoreChan <- score
-		}(item, listings, sales, info)
+		}(item, listings, sales, serverId)
 	}
 
 	go func() {
@@ -823,7 +903,7 @@ func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, in
 	}
 
 	// Cache the value of the currency
-	cacheKey := fmt.Sprintf("cv_%s_%d", currency, info.HomeServer)
+	cacheKey := fmt.Sprintf("cv_%s_%d", currency, serverId)
 	if _, exists := p.cache.Peek(cacheKey); !exists {
 		p.cache.Set(cacheKey, best.perCurrency, time.Minute*10)
 	}
@@ -831,8 +911,8 @@ func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, in
 	return best.perCurrency, best.sale, nil
 }
 
-func (p *ProfitCalculator) GetBestItemToSellForCurrency(currency string, info *PlayerInfo) (*SaleMethod, error) {
-	_, sale, err := p.getGilValueAndBestSaleForCurrency(currency, info)
+func (p *ProfitCalculator) GetBestItemToSellForCurrency(currency string, serverId int) (*SaleMethod, error) {
+	_, sale, err := p.getGilValueAndBestSaleForCurrency(currency, serverId)
 
 	if err != nil {
 		return nil, err
@@ -841,15 +921,15 @@ func (p *ProfitCalculator) GetBestItemToSellForCurrency(currency string, info *P
 	return sale, nil
 }
 
-func (p *ProfitCalculator) GetGilValueForCurrency(currency string, info *PlayerInfo) (float64, error) {
+func (p *ProfitCalculator) GetGilValueForCurrency(currency string, serverId int) (float64, error) {
 	if p.cache != nil {
-		cacheKey := fmt.Sprintf("cv_%s_%d", currency, info.HomeServer)
+		cacheKey := fmt.Sprintf("cv_%s_%d", currency, serverId)
 		if val, found := p.cache.Get(cacheKey); found {
 			return val.(float64), nil
 		}
 	}
 
-	gilEquivalent, _, err := p.getGilValueAndBestSaleForCurrency(currency, info)
+	gilEquivalent, _, err := p.getGilValueAndBestSaleForCurrency(currency, serverId)
 
 	if err != nil {
 		return 0.0, err
