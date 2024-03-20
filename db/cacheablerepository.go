@@ -1,775 +1,377 @@
 package db
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
+	cache "github.com/go-pkgz/expirable-cache"
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
+	"io"
 	"log"
+	"net/http"
+	"reflect"
+	"strconv"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
-	maxOpenDbConns = 10
-	maxDbLifetime  = 5 * time.Minute
-	dbTimeout      = 1 * time.Minute
-
+	cacheExpiry      = 15 * time.Minute
 	ignorePriceValue = 250 * 1000000
-	retrievalLimit   = 100
+	maxRetrievalTime = 2 * time.Hour * 24 * 365
+	batchLimit       = 100
+	listingCacheKey  = "l%d_%d"
+	saleCacheKey     = "s%d_%d"
 )
 
 type CacheableRepository struct {
-	DbPool *pgxpool.Pool
+	cache cache.Cache
 
 	dataCenters *map[int]*readertype.DataCenter
 
 	worlds *map[int]*readertype.World
 }
 
-func InitRepository(
-	dsn string, worlds *map[int]*readertype.World, dataCenters *map[int]*readertype.DataCenter,
-) (*CacheableRepository, error) {
-	repo := &CacheableRepository{}
+func makeApiRequest[T any](url string) (*T, error) {
+	resp, requestError := http.Get(url)
+	if requestError != nil {
+		log.Fatal(requestError)
+		return nil, requestError
+	}
 
-	// Connect then return repository
-	err := repo.Connect(dsn)
+	// API has a DNS problem or is offline, cancel unmarshalling
+	if resp.StatusCode == 522 {
+		return nil, errors.New("522 code returned from api request")
+	}
+
+	body, readAllError := io.ReadAll(resp.Body)
+	if readAllError != nil {
+		log.Fatal(readAllError)
+		return nil, readAllError
+	}
+
+	var responseObject T
+	var empty T
+	err := json.Unmarshal(body, &responseObject)
 	if err != nil {
-		log.Printf("Failed to connect to database: %s", err)
 		return nil, err
 	}
 
+	// Check if the response object is empty
+	if reflect.DeepEqual(responseObject, empty) {
+		return nil, errors.New("response object is empty")
+	}
+
+	return &responseObject, nil
+}
+
+func InitRepository(
+	worlds *map[int]*readertype.World, dataCenters *map[int]*readertype.DataCenter, cache cache.Cache,
+) (*CacheableRepository, error) {
+	repo := &CacheableRepository{}
+	repo.cache = cache
 	repo.dataCenters = dataCenters
 	repo.worlds = worlds
 
 	return repo, nil
 }
 
-func (c *CacheableRepository) CreateListing(listing Listing) (*Listing, error) {
-	if listing.PricePer > ignorePriceValue {
-		return &listing, nil
+func batchItems(itemIds []int) [][]int {
+	var batches [][]int
+	for batchLimit < len(itemIds) {
+		itemIds, batches = itemIds[batchLimit:], append(batches, itemIds[0:batchLimit:batchLimit])
+	}
+	batches = append(batches, itemIds)
+	return batches
+}
+
+func (c *CacheableRepository) GetListingsForItemsOnWorld(itemIds []int, worldId int) (*[]Listing, error) {
+	dataCenter := c.getDataCenterFromWorldId(worldId)
+
+	if dataCenter == nil {
+		return nil, fmt.Errorf("no data center found for world id %d", worldId)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	query := `
-		INSERT INTO listings 
-			(universalis_listing_id, 
-			 item_id, region_id, 
-			 data_center_id, world_id, 
-			 price_per_unit, quantity, 
-			 total_price, is_high_quality, 
-			 retainer_name, retainer_city, 
-			 last_review_time)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT (universalis_listing_id) DO UPDATE SET
-		    item_id = EXCLUDED.item_id,
-			price_per_unit = EXCLUDED.price_per_unit,
-			quantity = EXCLUDED.quantity,
-			total_price = EXCLUDED.total_price,
-			last_review_time = EXCLUDED.last_review_time
-		RETURNING listing_id`
-
-	serverInfo := (*c.worlds)[listing.WorldId]
-
-	_, err := c.DbPool.Exec(
-		ctx, query,
-		listing.UniversalisId, listing.ItemId,
-		serverInfo.RegionId, serverInfo.DataCenterId,
-		listing.WorldId, listing.PricePer,
-		listing.Quantity, listing.Total,
-		listing.IsHighQuality, listing.RetainerName,
-		listing.RetainerCity, listing.LastReview,
-	)
-
+	listingsOnDc, err := c.GetListingsForItemsOnDataCenter(itemIds, dataCenter.Key)
 	if err != nil {
 		return nil, err
 	}
 
-	return &listing, nil
+	var filteredListings []Listing
+	for _, listing := range *listingsOnDc {
+		if listing.WorldId == worldId {
+			filteredListings = append(filteredListings, listing)
+		}
+	}
+
+	return &filteredListings, err
 }
 
-func (c *CacheableRepository) CreateListings(listings *[]Listing) error {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
+func (c *CacheableRepository) GetListingsForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]Listing, error) {
+	batchedItems := batchItems(itemIds)
+	dataCenter := c.getDataCenterFromDcId(dataCenterId)
 
-	tx, err := c.DbPool.Begin(ctx)
-	if err != nil {
-		return err
+	if dataCenter == nil {
+		return nil, errors.New("data center not found")
 	}
 
-	batch := new(pgx.Batch)
-	for _, listing := range *listings {
-		// Don't bother uploading listing information if the price is ridiculous
-		if listing.PricePer > ignorePriceValue {
-			continue
-		}
+	dcString := dataCenter.Name
 
-		query := `INSERT INTO listings 
-			(universalis_listing_id, 
-			 item_id, region_id, 
-			 data_center_id, world_id, 
-			 price_per_unit, quantity, 
-			 total_price, is_high_quality, 
-			 retainer_name, retainer_city, 
-			 last_review_time)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT (universalis_listing_id, data_center_id) DO UPDATE SET
-		    item_id = EXCLUDED.item_id,
-			price_per_unit = EXCLUDED.price_per_unit,
-			quantity = EXCLUDED.quantity,
-			total_price = EXCLUDED.total_price,
-			last_review_time = EXCLUDED.last_review_time
-		RETURNING listing_id`
+	var results []Listing
+	for _, batch := range batchedItems {
+		// Loop through each batch
+		misses := make([]int, 0, batchLimit)
 
-		listingWorldRelation := (*c.worlds)[listing.WorldId]
+		for _, itemId := range batch {
+			listing, found := c.cache.Get(fmt.Sprintf(listingCacheKey, dataCenterId, itemId))
 
-		_ = batch.Queue(
-			query,
-			listing.UniversalisId, listing.ItemId,
-			listingWorldRelation.RegionId, listingWorldRelation.DataCenterId,
-			listing.WorldId, listing.PricePer,
-			listing.Quantity, listing.Total,
-			listing.IsHighQuality, listing.RetainerName,
-			listing.RetainerCity, listing.LastReview,
-		)
-	}
-
-	// Execute the query with all arguments
-	result := tx.SendBatch(ctx, batch)
-	defer func() {
-		if e := result.Close(); e != nil {
-			log.Printf("Failed to close batch: %s", e)
-			err = e
-		}
-
-		if err != nil {
-			err = tx.Rollback(ctx)
-
-			if err != nil {
-				log.Printf("Failed to rollback transaction: %s", err)
-			}
-		} else {
-			if e := tx.Commit(ctx); e != nil {
-				log.Printf("Failed to commit transaction: %s", e)
-				err = e
+			if found {
+				cachedListings := listing.([]Listing)
+				results = append(results, cachedListings...)
+			} else {
+				misses = append(misses, itemId)
 			}
 		}
-	}()
 
-	if err != nil {
-		return fmt.Errorf("failed to execute batch: %s", err)
-	}
-
-	return nil
-}
-
-func (c *CacheableRepository) DeleteListingByUniversalisId(listingUniversalisId int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	query := `DELETE FROM listings WHERE universalis_listing_id = $1`
-
-	_, err := c.DbPool.Exec(
-		ctx, query, listingUniversalisId,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *CacheableRepository) DeleteListings(universalisListingIds []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	tx, err := c.DbPool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-
-	batch := new(pgx.Batch)
-	for _, listingId := range universalisListingIds {
-		query := `DELETE FROM listings WHERE universalis_listing_id = $1`
-
-		_ = batch.Queue(
-			query,
-			listingId,
-		)
-	}
-
-	// Execute the query with all arguments
-	result := tx.SendBatch(ctx, batch)
-	defer func() {
-		if e := result.Close(); e != nil {
-			log.Printf("Failed to close batch: %s", e)
-			err = e
-		}
-
-		if err != nil {
-			err = tx.Rollback(ctx)
-
-			if err != nil {
-				log.Printf("Failed to rollback transaction: %s", err)
-			}
-		} else {
-			if e := tx.Commit(ctx); e != nil {
-				log.Printf("Failed to commit transaction: %s", e)
-				err = e
-			}
-		}
-	}()
-
-	if err != nil {
-		return fmt.Errorf("failed to execute batch: %s", err)
-	}
-
-	return nil
-}
-
-func (c *CacheableRepository) CreateSale(sale Sale) (*Sale, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	query := `
-		INSERT INTO sales
-			(item_id, world_id, 
-			 price_per_unit, quantity, 
-			 total_price, is_high_quality, 
-			 buyer_name, sale_time) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (sales_id, sale_time) DO NOTHING
-		RETURNING sales_id
-	`
-
-	returnedRow := c.DbPool.QueryRow(
-		ctx, query,
-		sale.ItemId, sale.WorldId,
-		sale.PricePer, sale.Quantity,
-		sale.TotalPrice, sale.IsHighQuality,
-		sale.BuyerName, sale.Timestamp,
-	)
-
-	err := returnedRow.Scan(&sale.Id)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &sale, nil
-}
-
-func (c *CacheableRepository) CreateSales(sales *[]Sale) error {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	tx, err := c.DbPool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-
-	batch := new(pgx.Batch)
-	for _, listing := range *sales {
-		query := `INSERT INTO sales 
-			(item_id, world_id, 
-			 price_per_unit, quantity, 
-			 total_price, is_high_quality, 
-			 buyer_name, sale_time)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		ON CONFLICT (sales_id, sale_time) DO NOTHING
-		RETURNING sales_id`
-
-		_ = batch.Queue(
-			query,
-			listing.ItemId, listing.WorldId,
-			listing.PricePer, listing.Quantity,
-			listing.TotalPrice, listing.IsHighQuality,
-			listing.BuyerName, listing.Timestamp,
-		)
-	}
-
-	// Execute the query with all arguments
-	result := tx.SendBatch(ctx, batch)
-	defer func() {
-		if e := result.Close(); e != nil {
-			log.Printf("Failed to close batch: %s", e)
-			err = e
-		}
-
-		if err != nil {
-			err = tx.Rollback(ctx)
-
-			if err != nil {
-				log.Printf("Failed to rollback transaction: %s", err)
-			}
-		} else {
-			if e := tx.Commit(ctx); e != nil {
-				log.Printf("Failed to commit transaction: %s", e)
-				err = e
-			}
-		}
-	}()
-
-	if err != nil {
-		return fmt.Errorf("failed to execute batch: %s", err)
-	}
-
-	return nil
-}
-
-func (c *CacheableRepository) DeleteSaleById(saleId int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	query := `DELETE FROM sales WHERE sales_id = $1`
-
-	_, err := c.DbPool.Exec(
-		ctx, query, saleId,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *CacheableRepository) Connect(connectionInfo string) error {
-	pgxConfig, err := pgxpool.ParseConfig(connectionInfo)
-
-	if err != nil {
-		return err
-	}
-
-	pgxConfig.MinConns = 0
-	pgxConfig.MaxConns = maxOpenDbConns
-	pgxConfig.MaxConnLifetime = maxDbLifetime
-
-	d, err := pgxpool.NewWithConfig(context.Background(), pgxConfig)
-
-	if err != nil {
-		return err
-	}
-
-	err = testConnection(d)
-	if err != nil {
-		return err
-	}
-
-	c.DbPool = d
-	return nil
-}
-
-func (c *CacheableRepository) createConstraint(
-	batch *pgx.Batch, tableName string, columnName string, constraintInfo string,
-) {
-	// We can only drop constraints if they already exist, but can't skip creating them if they exist
-	// Dropping then re-creating in case we accidentally run the setup process twice.
-	dropExistingConstraint := fmt.Sprintf(
-		`ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s_%s_index`,
-		tableName,
-		tableName,
-		columnName,
-	)
-	_ = batch.Queue(dropExistingConstraint)
-
-	uniqueIndexQuery := fmt.Sprintf(
-		`ALTER TABLE %s ADD CONSTRAINT %s_%s_index %s`,
-		tableName,
-		tableName,
-		columnName,
-		constraintInfo,
-	)
-	_ = batch.Queue(uniqueIndexQuery)
-}
-
-func (c *CacheableRepository) CreatePartitions() error {
-	// Create a batch
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	tx, err := c.DbPool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-
-	batch := new(pgx.Batch)
-	year := time.Now().Year()
-
-	// Create partitions for last and current year
-	c.createSalePartionsForYear(year, batch)
-
-	// Create partitions for listings by data center
-	c.createListingPartitionsForDc(batch)
-
-	// Execute the query with all arguments
-	result := tx.SendBatch(ctx, batch)
-	defer func() {
-		if e := result.Close(); e != nil {
-			log.Printf("Failed to close batch: %s", e)
-			err = e
-		}
-
-		if err != nil {
-			err = tx.Rollback(ctx)
-
-			if err != nil {
-				log.Printf("Failed to rollback transaction: %s", err)
-			}
-		} else {
-			if e := tx.Commit(ctx); e != nil {
-				log.Printf("Failed to commit transaction: %s", e)
-				err = e
-			}
-		}
-	}()
-
-	if err != nil {
-		return fmt.Errorf("failed to execute batch: %s", err)
-	}
-
-	return nil
-}
-
-func (c *CacheableRepository) createListingPartitionsForDc(
-	batch *pgx.Batch,
-) {
-	for dcId, dataCenter := range *c.dataCenters {
-		partitionName := fmt.Sprintf("listings_%s", dataCenter.Name)
-
-		partitionQuery := fmt.Sprintf(
-			`CREATE TABLE IF NOT EXISTS %s PARTITION OF listings FOR VALUES IN (%d)`,
-			partitionName,
-			dcId,
-		)
-		_ = batch.Queue(partitionQuery)
-
-		// Create check to enforce partition
-		dataCenterCheck := fmt.Sprintf(
-			`CHECK (data_center_id = %d)`,
-			dcId,
-		)
-
-		c.createConstraint(batch, partitionName, "data_center_id", dataCenterCheck)
-
-		// Create unique universalis_listing_id index
-		// We can only drop constraints if they already exist, but can't skip creating them if they exist
-		// Dropping then re-creating in case we accidentally run the setup process twice.
-		dropExistingConstraint := fmt.Sprintf(
-			`ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s_universalis_listing_id_index`,
-			partitionName,
-			partitionName,
-		)
-		_ = batch.Queue(dropExistingConstraint)
-
-		uniqueIndexQuery := fmt.Sprintf(
-			`ALTER TABLE %s ADD CONSTRAINT %s_universalis_listing_id_index UNIQUE (universalis_listing_id)`,
-			partitionName,
-			partitionName,
-		)
-		_ = batch.Queue(uniqueIndexQuery)
-
-		c.createConstraint(batch, partitionName, "sale_time", dataCenterCheck)
-
-		// Create world, datacenter and region indexes on the partition
-		worldIdIndex := fmt.Sprintf(
-			`CREATE INDEX IF NOT EXISTS %s_world_index
-    on %s (item_id desc, world_id asc) INCLUDE (total_price, quantity, price_per_unit)`, partitionName, partitionName,
-		)
-		dataCenterIndex := fmt.Sprintf(
-			`CREATE INDEX IF NOT EXISTS %s_data_center_index
-    on %s (item_id desc, data_center_id asc) INCLUDE (total_price, quantity, price_per_unit)`,
-			partitionName,
-			partitionName,
-		)
-		regionIndex := fmt.Sprintf(
-			`CREATE INDEX IF NOT EXISTS %s_region_index
-    on %s (item_id desc, region_id asc) INCLUDE (total_price, quantity, price_per_unit)`, partitionName, partitionName,
-		)
-
-		_ = batch.Queue(worldIdIndex)
-		_ = batch.Queue(dataCenterIndex)
-		_ = batch.Queue(regionIndex)
-	}
-}
-
-func (c *CacheableRepository) createSalePartionsForYear(year int, batch *pgx.Batch) {
-	for month := 1; month <= 12; month++ {
-		partitionName := fmt.Sprintf("sales_%d_%d", year, month)
-
-		// Determine the start and end date for the month.
-		startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-		endDate := startDate.AddDate(0, 1, 0)
-
-		partitionQuery :=
-			fmt.Sprintf(
-				`CREATE TABLE IF NOT EXISTS %s PARTITION OF sales FOR VALUES FROM ('%s') TO ('%s')`,
-				partitionName,
-				startDate.Format(time.RFC3339),
-				endDate.Format(time.RFC3339),
+		// Get information on all misses from the API
+		if len(misses) == 1 {
+			itemId := misses[0]
+			url := fmt.Sprintf(
+				"https://universalis.app/api/v2/%s/%d?entriesWithin=%d&fields=listings%%2ClastUploadTime",
+				dcString,
+				misses[0],
+				maxRetrievalTime,
 			)
-		_ = batch.Queue(partitionQuery)
 
-		// Create a check that enforces the values of the partition
-		timeConstraintCheck := fmt.Sprintf(
-			`CHECK (sale_time >= '%s' AND sale_time < '%s')`,
-			startDate.Format(time.RFC3339),
-			endDate.Format(time.RFC3339),
-		)
+			res, err := makeApiRequest[ItemDetails](url)
+			if err != nil {
+				return nil, err
+			}
 
-		c.createConstraint(batch, partitionName, "sale_time", timeConstraintCheck)
+			for _, listing := range res.Listings {
+				listing.ItemId = itemId
+				listing.DataCenterId = dataCenterId
+				listing.RegionId = dataCenter.Group
 
-		// Also queue the creation of indexes for this table
-		indexQuery := fmt.Sprintf(
-			`CREATE INDEX IF NOT EXISTS %s_index ON %s 
-(item_id desc, world_id asc) INCLUDE (total_price, price_per_unit, quantity, sale_time)`, partitionName, partitionName,
-		)
-		_ = batch.Queue(indexQuery)
+				results = append(results, listing)
+			}
 
-	}
-}
+			c.cache.Set(fmt.Sprintf(listingCacheKey, dataCenterId, itemId), results, cacheExpiry)
+		} else if len(misses) > 1 {
+			missIdsAsString := intArrayToString(misses)
+			url := fmt.Sprintf(
+				"https://universalis.app/api/v2/%s/%s?entriesWithin=%d&fields=items.listings%%2Citems.lastUploadTime",
+				dcString,
+				missIdsAsString,
+				maxRetrievalTime,
+			)
 
-func testConnection(pool *pgxpool.Pool) error {
-	err := pool.Ping(context.Background())
-	if err != nil {
-		fmt.Println("Error", err)
-		return err
-	}
+			res, err := makeApiRequest[MarketData](url)
+			if err != nil {
+				return nil, err
+			}
 
-	fmt.Println("Pinged successfully.")
-	return nil
-}
+			// Add apiListings and apiSales to cache
+			for itemIdString, marketData := range res.Items {
+				itemId, err := strconv.Atoi(itemIdString)
+				if err != nil {
+					continue
+				}
 
-func (c *CacheableRepository) GetListingsForItemOnWorld(itemId, worldId int) (*[]*Listing, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
+				listings := marketData.Listings
+				for _, listing := range listings {
+					listing.ItemId = itemId
+					listing.DataCenterId = dataCenterId
+					listing.RegionId = dataCenter.Group
 
-	query := `SELECT * FROM listings WHERE item_id = $1 AND world_id = $2 ORDER BY total_price LIMIT $3`
-
-	rows, err := c.DbPool.Query(ctx, query, itemId, worldId, retrievalLimit)
-	if err != nil {
-		return nil, err
-	}
-
-	listings, err := extractListings(rows, err, 1)
-	if err != nil {
-		return nil, err
-	}
-
-	return listings, nil
-}
-
-func (c *CacheableRepository) GetListingsForItemOnDataCenter(itemId, dataCenterId int) (*[]*Listing, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	query := `SELECT * FROM listings WHERE item_id = $1 AND data_center_id = $2 ORDER BY total_price LIMIT $3`
-
-	rows, err := c.DbPool.Query(ctx, query, itemId, dataCenterId, retrievalLimit)
-	if err != nil {
-		return nil, err
-	}
-
-	listings, err := extractListings(rows, err, 1)
-	if err != nil {
-		return nil, err
-	}
-
-	return listings, nil
-}
-
-func (c *CacheableRepository) GetListingsForItemsOnWorld(itemIds []int, worldId int) (*[]*Listing, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	if len(itemIds) == 0 {
-		return nil, nil
-	}
-
-	query := `SELECT * FROM listings WHERE item_id = ANY($1) AND world_id = $2 ORDER BY total_price LIMIT $3`
-
-	rows, err := c.DbPool.Query(ctx, query, itemIds, worldId, len(itemIds)*100)
-	if err != nil {
-		return nil, err
-	}
-
-	listings, err := extractListings(rows, err, len(itemIds))
-	if err != nil {
-		return nil, err
-	}
-
-	return listings, nil
-}
-
-func (c *CacheableRepository) GetListingsForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]*Listing, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	if len(itemIds) == 0 {
-		return nil, nil
-	}
-
-	query := `SELECT * FROM listings WHERE item_id = ANY($1) AND data_center_id = $2 ORDER BY total_price LIMIT $3`
-
-	rows, err := c.DbPool.Query(ctx, query, itemIds, dataCenterId, len(itemIds)*100)
-	if err != nil {
-		return nil, err
-	}
-
-	listings, err := extractListings(rows, err, len(itemIds))
-	if err != nil {
-		return nil, err
-	}
-
-	return listings, nil
-}
-
-func (c *CacheableRepository) GetSalesForItemOnWorld(itemId, worldId int) (*[]*Sale, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	query := `SELECT * FROM sales WHERE item_id = $1 AND world_id = $2 ORDER BY sale_time DESC LIMIT $3`
-
-	rows, err := c.DbPool.Query(ctx, query, itemId, worldId, retrievalLimit)
-	if err != nil {
-		return nil, err
-	}
-
-	sales, err := extractSales(rows, err)
-	if err != nil {
-		return nil, err
-	}
-
-	return sales, nil
-}
-
-func (c *CacheableRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (*[]*Sale, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	worldsOnDc := getWorldsOnDc(c, dataCenterId)
-	query := `SELECT * FROM sales WHERE item_id = $1 AND world_id = ANY($2) ORDER BY sale_time DESC LIMIT 100`
-
-	rows, err := c.DbPool.Query(ctx, query, itemId, worldsOnDc)
-	if err != nil {
-		return nil, err
-	}
-
-	sales, err := extractSales(rows, err)
-	if err != nil {
-		return nil, err
-	}
-
-	return sales, nil
-}
-
-func (c *CacheableRepository) GetSalesForItemsOnWorld(itemIds []int, worldId int) (*[]*Sale, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	query := `SELECT * FROM sales WHERE item_id = ANY($1) AND world_id = $2 ORDER BY sale_time DESC LIMIT $3`
-
-	rows, err := c.DbPool.Query(ctx, query, itemIds, worldId, retrievalLimit*len(itemIds))
-	if err != nil {
-		return nil, err
-	}
-
-	sales, err := extractSales(rows, err)
-	if err != nil {
-		return nil, err
-	}
-
-	return sales, nil
-}
-
-func (c *CacheableRepository) GetSalesForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]*Sale, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	worldsOnDc := getWorldsOnDc(c, dataCenterId)
-	query := `SELECT * FROM sales WHERE item_id = ANY($1) AND world_id = ANY($2) ORDER BY sale_time DESC LIMIT $3`
-
-	rows, err := c.DbPool.Query(ctx, query, itemIds, worldsOnDc, retrievalLimit*len(itemIds))
-	if err != nil {
-		return nil, err
-	}
-
-	sales, err := extractSales(rows, err)
-	if err != nil {
-		return nil, err
-	}
-
-	return sales, nil
-}
-
-func getWorldsOnDc(c *CacheableRepository, dataCenterId int) *pgtype.Array[int] {
-	// The smallest data center currently has 4 worlds on it, and the largest has 8
-	worldsOnDc := make([]int, 4, 8)
-	for _, world := range *c.worlds {
-		if len(worldsOnDc) == cap(worldsOnDc) {
-			break
-		}
-
-		if world.DataCenterId == dataCenterId {
-			worldsOnDc = append(worldsOnDc, world.Id)
+					c.cache.Set(fmt.Sprintf(listingCacheKey, dataCenterId, itemId), listings, cacheExpiry)
+					results = append(results, listing)
+				}
+			}
 		}
 	}
 
-	return &pgtype.Array[int]{
-		Elements: worldsOnDc,
-		Dims: []pgtype.ArrayDimension{
-			{Length: int32(len(worldsOnDc)), LowerBound: 1},
-		},
-		Valid: true,
-	}
+	return &results, nil
 }
 
-func extractListings(rows pgx.Rows, err error, len int) (*[]*Listing, error) {
-	listings := make([]*Listing, 0, len*retrievalLimit)
-	for rows.Next() {
-		var listing Listing
-		err = rows.Scan(
-			&listing.Id, &listing.UniversalisId,
-			&listing.ItemId, &listing.RegionId,
-			&listing.DataCenterId, &listing.WorldId,
-			&listing.PricePer, &listing.Quantity,
-			&listing.Total, &listing.IsHighQuality,
-			&listing.RetainerName, &listing.RetainerCity,
-			&listing.LastReview,
-		)
-		if err != nil {
-			return nil, err
-		}
+func (c *CacheableRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (*[]Sale, error) {
+	dataCenter := c.getDataCenterFromDcId(dataCenterId)
 
-		listings = append(listings, &listing)
+	if dataCenter == nil {
+		return nil, errors.New("data center not found")
 	}
 
-	return &listings, nil
-}
+	dcString := dataCenter.Name
 
-func extractSales(rows pgx.Rows, err error) (*[]*Sale, error) {
-	var sales []*Sale
-	for rows.Next() {
-		var sale Sale
-		err = rows.Scan(
-			&sale.Id, &sale.ItemId,
-			&sale.WorldId, &sale.PricePer,
-			&sale.Quantity, &sale.TotalPrice,
-			&sale.IsHighQuality, &sale.BuyerName,
-			&sale.Timestamp,
-		)
-		if err != nil {
-			return nil, err
-		}
+	cachedSales, found := c.cache.Get(fmt.Sprintf(saleCacheKey, dataCenterId, itemId))
 
-		sales = append(sales, &sale)
+	if found {
+		sales := cachedSales.([]Sale)
+		return &sales, nil
 	}
+
+	url := fmt.Sprintf(
+		"https://universalis.app/api/v2/history/%s/%d?entriesToReturn=%d&entriesWithin=%d&maxSalePrice=%d",
+		dcString,
+		itemId,
+		batchLimit,
+		maxRetrievalTime,
+		ignorePriceValue,
+	)
+
+	res, err := makeApiRequest[ItemDetails](url)
+	if err != nil {
+		return nil, err
+	}
+
+	var sales []Sale
+	for _, sale := range res.Sales {
+		sale.ItemId = itemId
+		sale.RegionId = dataCenter.Group
+		sale.DataCenterId = dataCenterId
+		sale.Total = sale.Quantity * sale.PricePer
+
+		sales = append(sales, sale)
+	}
+
+	c.cache.Set(fmt.Sprintf(saleCacheKey, dataCenterId, itemId), sales, cacheExpiry)
 
 	return &sales, nil
+}
+
+func (c *CacheableRepository) GetSalesForItemsOnWorld(itemIds []int, worldId int) (*[]Sale, error) {
+	dataCenter := c.getDataCenterFromWorldId(worldId)
+
+	if dataCenter == nil {
+		return nil, fmt.Errorf("no data center found for world id %d", worldId)
+	}
+
+	listingsOnDc, err := c.GetSalesForItemsOnDataCenter(itemIds, dataCenter.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredSales []Sale
+	for _, sale := range *listingsOnDc {
+		if sale.WorldId == worldId {
+			filteredSales = append(filteredSales, sale)
+		}
+	}
+
+	return &filteredSales, err
+}
+
+func (c *CacheableRepository) GetSalesForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]Sale, error) {
+	batchedItems := batchItems(itemIds)
+	dataCenter := c.getDataCenterFromDcId(dataCenterId)
+
+	if dataCenter == nil {
+		return nil, errors.New("data center not found")
+	}
+
+	dcString := dataCenter.Name
+
+	var results []Sale
+	for _, batch := range batchedItems {
+		// Loop through each batch
+		misses := make([]int, 0, batchLimit)
+
+		for _, itemId := range batch {
+			sales, found := c.cache.Get(fmt.Sprintf(saleCacheKey, dataCenterId, itemId))
+
+			if found {
+				cachedSales := sales.([]Sale)
+				results = append(results, cachedSales...)
+			} else {
+				misses = append(misses, itemId)
+			}
+		}
+
+		// Get information on all misses from the API
+		if len(misses) == 1 {
+			itemId := misses[0]
+			url := fmt.Sprintf(
+				"https://universalis.app/api/v2/history/%s/%d?entriesToReturn=%d&entriesWithin=%d&maxSalePrice=%d",
+				dcString,
+				itemId,
+				batchLimit,
+				maxRetrievalTime,
+				ignorePriceValue,
+			)
+
+			res, err := makeApiRequest[ItemDetails](url)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, sale := range res.Sales {
+				sale.ItemId = itemId
+				sale.DataCenterId = dataCenterId
+				sale.RegionId = dataCenter.Group
+
+				results = append(results, sale)
+			}
+
+			c.cache.Set(fmt.Sprintf(saleCacheKey, dataCenterId, itemId), results, cacheExpiry)
+		} else if len(misses) > 0 {
+			missIdsAsString := intArrayToString(misses)
+			url := fmt.Sprintf(
+				"https://universalis.app/api/v2/history/%s/%s?entriesToReturn=%d&entriesWithin=%d&maxSalePrice=%d",
+				dcString,
+				missIdsAsString,
+				batchLimit,
+				maxRetrievalTime,
+				ignorePriceValue,
+			)
+
+			res, err := makeApiRequest[MarketData](url)
+			if err != nil {
+				return nil, err
+			}
+
+			for itemId, marketData := range res.Items {
+				sales := marketData.Sales
+				for _, sale := range sales {
+					sale.ItemId = marketData.ItemId
+					sale.DataCenterId = dataCenterId
+					sale.RegionId = dataCenter.Group
+
+					c.cache.Set(fmt.Sprintf(saleCacheKey, dataCenterId, itemId), sales, cacheExpiry)
+					results = append(results, sale)
+				}
+			}
+		}
+	}
+
+	return &results, nil
+}
+
+func intArrayToString(i []int) string {
+	var buf bytes.Buffer
+	for j, v := range i {
+		buf.WriteString(strconv.Itoa(v))
+		if j < len(i)-1 {
+			buf.WriteByte(',')
+		}
+	}
+
+	return buf.String()
+}
+
+func (c *CacheableRepository) getDataCenterFromWorldId(worldId int) *readertype.DataCenter {
+	if world, found := (*c.worlds)[worldId]; found {
+		return c.getDataCenterFromDcId(world.DataCenterId)
+	}
+
+	return nil
+}
+
+func (c *CacheableRepository) getDataCenterFromDcId(dcId int) *readertype.DataCenter {
+	if dataCenter, found := (*c.dataCenters)[dcId]; found {
+		return dataCenter
+	}
+
+	return nil
 }

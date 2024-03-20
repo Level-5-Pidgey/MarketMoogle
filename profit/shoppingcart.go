@@ -12,7 +12,7 @@ type ShoppingListing struct {
 	ItemId       int
 	Quantity     int
 	RetainerName string
-	listingId    int
+	listingId    string
 	worldId      int
 	CostPer      int
 }
@@ -38,7 +38,7 @@ func (s ShoppingListing) BuyFrom() string {
 }
 
 func (s ShoppingListing) GetHash() string {
-	return fmt.Sprintf("%d_%d", s.ItemId, s.listingId)
+	return fmt.Sprintf("%d_%s", s.ItemId, s.listingId)
 }
 
 type LocalItem struct {

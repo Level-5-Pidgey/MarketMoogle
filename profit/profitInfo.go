@@ -62,7 +62,7 @@ func calculateCompetitionFactor(numOfListings int) float64 {
 	return 1 / (1 + math.Exp(sensitivity*float64(numOfListings)-competitionThreshold))
 }
 
-func calculateWeightedMedian(sales *[]*db.Sale) int {
+func calculateWeightedMedian(sales *[]db.Sale) int {
 	now := time.Now().UTC()
 	maxDiff := float64(0)
 
@@ -87,20 +87,22 @@ func calculateWeightedMedian(sales *[]*db.Sale) int {
 	weightedSales := make([]weightedSale, 0, salesLength)
 
 	for _, sale := range *sales {
-		diff := now.Sub(sale.Timestamp).Hours()
+		saleTimestamp := time.Unix(sale.Timestamp, 0)
+		diff := now.Sub(saleTimestamp).Hours()
 		if diff > maxDiff {
 			maxDiff = diff
 		}
 	}
 
 	for _, sale := range *sales {
-		diff := now.Sub(sale.Timestamp).Hours()
+		saleTimestamp := time.Unix(sale.Timestamp, 0)
+		diff := now.Sub(saleTimestamp).Hours()
 
 		weightedSales = append(
 			weightedSales, weightedSale{
 				price:     sale.PricePer,
 				score:     float64(sale.PricePer) * (1 - diff/maxDiff),
-				timestamp: sale.Timestamp,
+				timestamp: saleTimestamp,
 			},
 		)
 	}
@@ -118,7 +120,7 @@ func calculateWeightedMedian(sales *[]*db.Sale) int {
 // Get the method of exchange that returns the most gil on this item.
 // Includes selling this item on the marketboard
 func (p *ProfitCalculator) GetBestSaleMethod(
-	item *Item, listings *[]*db.Listing, sales *[]*db.Sale, serverId int, gilOnly bool,
+	item *Item, listings *[]db.Listing, sales *[]db.Sale, serverId int, gilOnly bool,
 ) *SaleMethod {
 	cacheKey := fmt.Sprintf("sale_%d_%d", item.Id, serverId)
 	if val, found := p.cache.Get(cacheKey); found {
@@ -126,7 +128,7 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 
 		return &saleMethod
 	}
-	
+
 	var bestSale *SaleMethod
 
 	competitionFactor := 1.0
@@ -177,10 +179,11 @@ func (p *ProfitCalculator) GetBestSaleMethod(
 		*/
 		if bestSale == nil || bestSale.ValuePer == 0 {
 			if sales != nil && len(*sales) > 0 {
-				filteredSales := make([]*db.Sale, 0, len(*sales))
+				filteredSales := make([]db.Sale, 0, len(*sales))
 				daysAgo := time.Now().AddDate(0, 0, -salesDayRange).UTC()
 				for _, sale := range *sales {
-					if sale.WorldId == serverId && sale.Timestamp.After(daysAgo) {
+					saleTimestamp := time.Unix(sale.Timestamp, 0)
+					if sale.WorldId == serverId && saleTimestamp.After(daysAgo) {
 						filteredSales = append(filteredSales, sale)
 					}
 				}
@@ -341,7 +344,7 @@ func isEasierToObtain(curr, new *ObtainMethod) bool {
 }
 
 func (p *ProfitCalculator) GetCheapestObtainMethod(
-	item *Item, numRequired int, listings *[]*db.Listing, player *PlayerInfo, skipExchanges bool,
+	item *Item, numRequired int, listings *[]db.Listing, player *PlayerInfo, skipExchanges bool,
 ) *ObtainMethod {
 	var cheapestMethod *ObtainMethod
 
@@ -350,7 +353,7 @@ func (p *ProfitCalculator) GetCheapestObtainMethod(
 	}
 
 	if !item.MarketProhibited && listings != nil {
-		var filteredListings []*db.Listing
+		var filteredListings []db.Listing
 		for _, listing := range *listings {
 			if listing.ItemId == item.Id {
 				filteredListings = append(filteredListings, listing)
@@ -409,7 +412,7 @@ func (p *ProfitCalculator) getPossibleSubItems(
 }
 
 func (p *ProfitCalculator) craftingObtainMethod(
-	item *Item, numRequired int, listings *[]*db.Listing, cheapestMethod *ObtainMethod, player *PlayerInfo,
+	item *Item, numRequired int, listings *[]db.Listing, cheapestMethod *ObtainMethod, player *PlayerInfo,
 	skipExchanges bool,
 ) *ObtainMethod {
 	for _, craftingRecipe := range *item.CraftingRecipes {
@@ -474,18 +477,18 @@ func (p *ProfitCalculator) craftingObtainMethod(
 }
 
 func marketObtainMethod(
-	item *Item, cheapestMethod *ObtainMethod, numRequired int, listings *[]*db.Listing, player *PlayerInfo,
+	item *Item, cheapestMethod *ObtainMethod, numRequired int, listings *[]db.Listing, player *PlayerInfo,
 ) *ObtainMethod {
-	sortListings := func(listings []*db.Listing) {
+	sortListings := func(listings []db.Listing) {
 		sort.Slice(
 			listings, func(i, ii int) bool {
-				listingAEffortCost := calculateListingEffortCost(listings[i], player.HomeServer)
-				listingBEffortCost := calculateListingEffortCost(listings[ii], player.HomeServer)
+				listingAEffortCost := calculateListingEffortCost(&listings[i], player.HomeServer)
+				listingBEffortCost := calculateListingEffortCost(&listings[ii], player.HomeServer)
 
 				// Tiebreaker logic
 				if listingAEffortCost == listingBEffortCost {
 					if listings[i].Total == listings[ii].Total {
-						return listings[i].Id < listings[ii].Id
+						return listings[i].ListingId < listings[ii].ListingId
 					}
 
 					return listings[i].PricePer < listings[ii].PricePer
@@ -515,7 +518,7 @@ func marketObtainMethod(
 			break
 		}
 
-		if alreadyBoughtListing(cheapestMethod, listing) {
+		if alreadyBoughtListing(cheapestMethod, &listing) {
 			continue
 		}
 
@@ -526,7 +529,7 @@ func marketObtainMethod(
 				ItemId:       item.Id,
 				Quantity:     listing.Quantity,
 				RetainerName: listing.RetainerName,
-				listingId:    listing.Id,
+				listingId:    listing.ListingId,
 				worldId:      listing.WorldId,
 				CostPer:      listing.PricePer,
 			},
@@ -554,7 +557,7 @@ func alreadyBoughtListing(cheapestMethod *ObtainMethod, listing *db.Listing) boo
 	}
 
 	for _, cartItem := range cheapestMethod.ShoppingCart.ItemsToBuy {
-		if cartItem.GetHash() == listing.UniversalisId {
+		if cartItem.GetHash() == listing.ListingId {
 			return true
 		}
 	}
@@ -695,15 +698,16 @@ type ProfitInfo struct {
 	ProfitScore  float64
 }
 
-func (p *ProfitCalculator) salesPerHour(sales *[]*db.Sale, dayRange int) float64 {
+func (p *ProfitCalculator) salesPerHour(sales *[]db.Sale, dayRange int) float64 {
 	if sales == nil || len(*sales) == 0 {
 		return 0
 	}
 
 	daysAgo := time.Now().AddDate(0, 0, -dayRange).UTC()
-	var filteredSales []*db.Sale
+	var filteredSales []db.Sale
 	for _, sale := range *sales {
-		if sale.Timestamp.After(daysAgo) {
+		saleTimestamp := time.Unix(sale.Timestamp, 0)
+		if saleTimestamp.After(daysAgo) {
 			filteredSales = append(filteredSales, sale)
 		}
 	}
@@ -727,8 +731,8 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 	}
 
 	// Get market listings for item if this item is sellable
-	var listings *[]*db.Listing = nil
-	var listingsOnPlayerWorld []*db.Listing
+	var listings *[]db.Listing = nil
+	var listingsOnPlayerWorld []db.Listing
 	if len(itemIds) > 0 {
 		listingResults, err := p.repository.GetListingsForItemsOnDataCenter(itemIds, info.DataCenter)
 		listings = listingResults
@@ -836,11 +840,11 @@ func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, se
 	for _, item := range itemsWithObtainMethod {
 		wg.Add(1)
 
-		go func(item *Item, listings *[]*db.Listing, sales *[]*db.Sale, serverId int) {
+		go func(item *Item, listings *[]db.Listing, sales *[]db.Sale, serverId int) {
 			defer wg.Done()
 
-			filteredSales := make([]*db.Sale, 0, 100)
-			filteredListings := make([]*db.Listing, 0, 100)
+			filteredSales := make([]db.Sale, 0, 100)
+			filteredListings := make([]db.Listing, 0, 100)
 			for _, sale := range *sales {
 				if sale.ItemId != item.Id {
 					continue
@@ -982,7 +986,7 @@ func (p *ProfitCalculator) getCheapestMethodToObtainCurrency(currency string, in
 	for _, item := range itemsWithExchangeMethod {
 		wg.Add(1)
 
-		go func(item *Item, listings *[]*db.Listing, info *PlayerInfo) {
+		go func(item *Item, listings *[]db.Listing, info *PlayerInfo) {
 			defer wg.Done()
 
 			itemMethod := p.GetCheapestObtainMethod(item, 1, listingResults, info, true)

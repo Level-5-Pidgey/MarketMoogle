@@ -214,31 +214,9 @@ func (c Controller) GetAllItemProfit(w http.ResponseWriter, r *http.Request) {
 func (c Controller) GetGilValueOfCurrency(w http.ResponseWriter, r *http.Request) {
 	serverId := c.getWorldIdFromRequest(r)
 	currency := chi.URLParam(r, "currency")
-	dcId := c.getDcIdFromWorldId(serverId)
-
-	playerInfo := profitCalc.PlayerInfo{
-		HomeServer:       serverId,
-		DataCenter:       dcId,
-		SkipCrystals:     true,
-		GrandCompanyRank: readertype.Captain,
-		JobLevels: map[readertype.Job]int{
-			readertype.JobCarpenter:     90,
-			readertype.JobBlacksmith:    90,
-			readertype.JobArmourer:      90,
-			readertype.JobGoldsmith:     90,
-			readertype.JobLeatherworker: 90,
-			readertype.JobWeaver:        90,
-			readertype.JobAlchemist:     90,
-			readertype.JobCulinarian:    90,
-			readertype.JobMiner:         90,
-			readertype.JobBotanist:      90,
-			readertype.JobFisher:        90,
-			readertype.JobPaladin:       90,
-		},
-	}
 
 	exchangeType := readertype.FromApiParam(currency)
-	value, err := c.profitCalc.GetGilValueForCurrency(exchangeType.String(), &playerInfo)
+	value, err := c.profitCalc.GetGilValueForCurrency(exchangeType.String(), serverId)
 
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
@@ -254,31 +232,9 @@ func (c Controller) GetGilValueOfCurrency(w http.ResponseWriter, r *http.Request
 func (c Controller) GetBestItemToSellForCurrency(w http.ResponseWriter, r *http.Request) {
 	serverId := c.getWorldIdFromRequest(r)
 	currency := chi.URLParam(r, "currency")
-	dcId := c.getDcIdFromWorldId(serverId)
-
-	playerInfo := profitCalc.PlayerInfo{
-		HomeServer:       serverId,
-		DataCenter:       dcId,
-		SkipCrystals:     true,
-		GrandCompanyRank: readertype.Captain,
-		JobLevels: map[readertype.Job]int{
-			readertype.JobCarpenter:     90,
-			readertype.JobBlacksmith:    90,
-			readertype.JobArmourer:      90,
-			readertype.JobGoldsmith:     90,
-			readertype.JobLeatherworker: 90,
-			readertype.JobWeaver:        90,
-			readertype.JobAlchemist:     90,
-			readertype.JobCulinarian:    90,
-			readertype.JobMiner:         90,
-			readertype.JobBotanist:      90,
-			readertype.JobFisher:        90,
-			readertype.JobPaladin:       90,
-		},
-	}
 
 	exchangeType := readertype.FromApiParam(currency)
-	sale, err := c.profitCalc.GetBestItemToSellForCurrency(exchangeType.String(), &playerInfo)
+	sale, err := c.profitCalc.GetBestItemToSellForCurrency(exchangeType.String(), serverId)
 
 	if err != nil {
 		util.ErrorJSON(w, err, http.StatusNotFound)
