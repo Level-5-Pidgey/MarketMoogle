@@ -44,6 +44,8 @@ func Routes(
 	// Currency
 	router.Get("/api/v1/server/{worldId}/currency/{currency}/value", controller.GetGilValueOfCurrency)
 	router.Get("/api/v1/server/{worldId}/currency/{currency}/best-sell", controller.GetBestItemToSellForCurrency)
+	router.Get("/api/v1/server/{worldId}/currency/{currency}/min-cost", controller.GetCostToAcquireCurrency)
+	router.Get("/api/v1/server/{worldId}/currency/{currency}/best-convert", controller.GetCheapestAcquisitionOfCurrency)
 
 	return router
 }

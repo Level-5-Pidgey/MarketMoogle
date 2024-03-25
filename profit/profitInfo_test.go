@@ -43,7 +43,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				Value:             50,
 				Quantity:          1,
 				ValuePer:          50,
-				SaleVelocity:      0.0001,
+				SaleVelocity:      0.001,
 				CompetitionFactor: 1.0,
 			},
 		},
@@ -72,7 +72,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				Value:             500,
 				Quantity:          1,
 				ValuePer:          500,
-				SaleVelocity:      0.0001,
+				SaleVelocity:      0.001,
 				CompetitionFactor: 0.5,
 			},
 		},
@@ -101,7 +101,7 @@ func TestProfitCalculator_GetBestSaleMethod(t *testing.T) {
 				Value:             495,
 				Quantity:          5,
 				ValuePer:          99,
-				SaleVelocity:      0.0001,
+				SaleVelocity:      0.001,
 				CompetitionFactor: 0.5,
 			},
 		},
@@ -1020,13 +1020,13 @@ func TestProfitCalculator_getIngredientsForRecipe(t *testing.T) {
 					repo,
 				)
 
-				if got := p.getPossibleSubItems(
+				if got := p.GetPossibleSubItems(
 					nil,
 					tt.args.numRequired,
 					tt.args.recipe,
 					tt.args.skipCrystals,
 				); !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("getPossibleSubItems() = %v, want %v", got, tt.want)
+					t.Errorf("GetPossibleSubItems() = %v, want %v", got, tt.want)
 				}
 			},
 		)

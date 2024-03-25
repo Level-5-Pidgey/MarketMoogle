@@ -1,28 +1,17 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
 	cache "github.com/go-pkgz/expirable-cache"
-	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/level-5-pidgey/MarketMoogle/api/universalis"
 	"github.com/level-5-pidgey/MarketMoogle/csv"
 	dc "github.com/level-5-pidgey/MarketMoogle/csv/datacollection"
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
 	"github.com/level-5-pidgey/MarketMoogle/db"
 	"github.com/level-5-pidgey/MarketMoogle/profit"
 	"github.com/level-5-pidgey/MarketMoogle/profit/exchange"
-	"gopkg.in/mgo.v2/bson"
-	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
-	"reflect"
-	"strings"
 	"sync"
 	"time"
 )
@@ -36,10 +25,6 @@ const (
 )
 
 func main() {
-	setupFlag := flag.Bool("setup", false, "runs setup code to initialize db and populate item data")
-
-	flag.Parse()
-
 	collection, err := dc.CreateDataCollection()
 	if err != nil {
 		log.Fatal(err)
@@ -144,22 +129,9 @@ func main() {
 
 	worlds, dataCenters, err := getGameServers()
 
-	// Pre-add currency data to cache
-
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Connect to postgres
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbUser := readDockerSecret("db_user")
-	dbPassword := readDockerSecret("db_password")
-	dbName := os.Getenv("DB_NAME")
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s timezone=UTC connect_timeout=5",
-		dbHost, dbPort, dbUser, dbPassword, dbName,
-	)
 
 	// Create cache
 	cacheTime := time.Minute * 10
@@ -179,16 +151,10 @@ func main() {
 		}
 	}(c)
 
-	repository, err := db.InitRepository(dsn, worlds, dataCenters)
+	repository, err := db.InitRepository(worlds, dataCenters, c)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	defer func(database *pgxpool.Pool) {
-		// This doesn't output an anything, so we can't check if
-		// there's been an error in the closing process :(
-		database.Close()
-	}(repository.DbPool)
 
 	app := &Application{
 		Config: Config{
@@ -199,132 +165,66 @@ func main() {
 	// Create Profit Calculator
 	p := profitCalc.NewProfitCalculator(&profitItems, &itemsByObtainInfo, &itemsByExchangeMethod, repository, c)
 
+	// Warm up the cache
+	/*itemIdMap := make(map[int]interface{})
+	for _, item := range profitItems {
+		if item.MarketProhibited {
+			continue
+		}
+
+		if item.CraftingRecipes != nil {
+			subItems := p.GetPossibleSubItems(nil, item, true)
+			for itemId := range subItems {
+				itemIdMap[itemId] = nil
+			}
+		}
+
+		itemIdMap[item.Id] = nil
+	}
+
+	itemIds := make([]int, 0, len(itemIdMap))
+	for itemId := range itemIdMap {
+		itemIds = append(itemIds, itemId)
+	}
+
+	batchedItemIds := util.BatchItems(itemIds, 250)
+	cacheWarmBar := progressbar.Default(int64(len(itemIds)))
+	// Load these item ids into cache
+	for _, idBatch := range batchedItemIds {
+		barErr := cacheWarmBar.Add(len(idBatch))
+		if barErr != nil {
+			fmt.Printf("Error warming up cache: %s", barErr)
+			return
+		}
+
+		_, err = p.Repository.GetSalesForItemsOnDataCenter(idBatch, 9)
+		if err != nil {
+			return
+		}
+
+		_, err = p.Repository.GetListingsForItemsOnDataCenter(idBatch, 9)
+		if err != nil {
+			return
+		}
+
+		time.Sleep(time.Millisecond * 3500)
+	}
+
+	closeErr := cacheWarmBar.Close()
+	if closeErr != nil {
+		fmt.Printf("Error warming up cache: %s", closeErr)
+		return
+	}
+
+	time.Sleep(time.Second * 5)*/
+
 	// Start up API server
-	go func() {
-		err = app.Serve(collection, worlds, p)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Printf("Started up API server on port %s", app.Config.Port)
-	}()
-
-	// CreatePartitions DB
-	if *setupFlag {
-		// Create partitions
-		err = repository.CreatePartitions()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Get initial listing and sales data with Universalis API
-		for _, item := range profitItems {
-			if item.MarketProhibited {
-				continue
-			}
-
-			itemWaitGroup := &sync.WaitGroup{}
-
-			// Search for listings for this item on all data centers
-			for _, world := range *worlds {
-				itemWaitGroup.Add(1)
-
-				go func(world *readertype.World, group *sync.WaitGroup) {
-					defer group.Done()
-
-					listingsUrl := fmt.Sprintf(
-						"https://universalis.app/api/v2/%s/%d?listings=40&entries=20",
-						strings.ToLower(world.DataCenterName),
-						item.Id,
-					)
-
-					data, apiErr := makeApiRequest[universalis.Entry](listingsUrl)
-					if apiErr != nil && apiErr.Error() != "response object is empty" {
-						log.Printf("failed to get listings from universalis: %s\n", apiErr)
-					}
-
-					if data == nil {
-						return
-					}
-
-					// Assign the item id to the data because for some reason universalis uses 2 different "item id" names
-					data.Item = item.Id
-
-					listings := data.ConvertToDbListings()
-
-					apiErr = repository.CreateListings(listings)
-					if apiErr != nil {
-						log.Printf("failed to create listings in db: %s\n", apiErr)
-					} else {
-						fmt.Printf(
-							"Added %d listings for item #%d on the %s datacenter\n",
-							len(*listings),
-							item.Id,
-							world.Name,
-						)
-					}
-
-					sales := data.ConvertToDbSales()
-					apiErr = repository.CreateSales(sales)
-					if apiErr != nil {
-						log.Printf("failed to create listings in db: %s\n", apiErr)
-					} else {
-						fmt.Printf(
-							"Added %d sales for item #%d on the %s datacenter\n",
-							len(*sales),
-							item.Id,
-							world.Name,
-						)
-					}
-				}(world, itemWaitGroup)
-			}
-
-			itemWaitGroup.Wait()
-		}
-	}
-
-	// Poll Universalis for Market data
-	wg := &sync.WaitGroup{}
-
-	for worldId := range *worlds {
-		wg.Add(1)
-		go dialUp(repository, wg, worldId)
-	}
-
-	wg.Wait()
-}
-
-func makeApiRequest[T any](url string) (*T, error) {
-	resp, requestError := http.Get(url)
-	if requestError != nil {
-		log.Fatal(requestError)
-		return nil, requestError
-	}
-
-	// API has a DNS problem or is offline, cancel unmarshalling
-	if resp.StatusCode == 522 {
-		return nil, errors.New("522 code returned from api request")
-	}
-
-	body, readAllError := io.ReadAll(resp.Body)
-	if readAllError != nil {
-		log.Fatal(readAllError)
-		return nil, readAllError
-	}
-
-	var responseObject T
-	var empty T
-	err := json.Unmarshal(body, &responseObject)
+	err = app.Serve(collection, worlds, p)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
-	// Check if the response object is empty
-	if reflect.DeepEqual(responseObject, empty) {
-		return nil, errors.New("response object is empty")
-	}
-
-	return &responseObject, nil
+	fmt.Printf("Started up API server on port %s", app.Config.Port)
 }
 
 func getGameServers() (*map[int]*readertype.World, *map[int]*readertype.DataCenter, error) {
@@ -448,161 +348,6 @@ func getGameServers() (*map[int]*readertype.World, *map[int]*readertype.DataCent
 	}
 
 	return &gameWorlds, &dataCenters, nil
-}
-
-func dialUp(repository db.Repository, wg *sync.WaitGroup, worldId int) {
-	defer wg.Done()
-
-	interrupt := make(chan os.Signal, 1)
-
-	u := url.URL{
-		Scheme: "wss",
-		Host:   "universalis.app",
-		Path:   "/api/ws",
-	}
-
-	log.Printf("subscribing to ws %s with worldId %d\n", u.String(), worldId)
-
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
-
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-
-		subscribeToChannel("listings/add", worldId, c)
-		subscribeToChannel("sales/add", worldId, c)
-		subscribeToChannel("listings/remove", worldId, c)
-		subscribeToChannel("sales/remove", worldId, c)
-
-		for {
-			msgType, message, err := c.ReadMessage()
-
-			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Printf("error: %v", err)
-				}
-				break
-			}
-
-			if msgType != websocket.BinaryMessage {
-				break
-			}
-
-			var data universalis.Entry
-			err = bson.Unmarshal(message, &data)
-			if err != nil {
-				log.Printf("failed to unmarshal: %s\n", err)
-				return
-			}
-
-			switch data.Event {
-			case "listings/add":
-				dbListings := data.ConvertToDbListings()
-				err := repository.CreateListings(dbListings)
-
-				if err != nil {
-					log.Printf("failed to create listings in db: %s\n", err)
-				}
-			case "sales/add":
-				dbSales := data.ConvertToDbSales()
-				err := repository.CreateSales(dbSales)
-
-				if err != nil {
-					log.Printf("failed to create sales in db: %s\n", err)
-				}
-			case "listings/remove":
-				listingIds := make([]string, len(data.Listings))
-				for index, listing := range data.Listings {
-					listingIds[index] = listing.ListingId
-				}
-
-				err := repository.DeleteListings(listingIds)
-				if err != nil {
-					log.Printf("failed to delete listings in db: %s\n", err)
-				}
-			case "sales/remove":
-				log.Printf("removed sale\n")
-			}
-		}
-	}()
-
-	ticker := time.NewTicker(pingPeriod)
-
-	/*defer func() {
-		ticker.Stop()
-		log.Printf("closed connection on worldId %d\n", worldId)
-		err := c.Close()
-		if err != nil {
-			return
-		}
-	}()*/
-
-	for {
-		select {
-		case <-done:
-			return
-		case <-ticker.C:
-			err := c.SetWriteDeadline(time.Now().Add(writeWait))
-			if err != nil {
-				log.Println(err)
-				return
-			}
-
-			if err := c.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Println(err)
-				return
-			}
-		case <-interrupt:
-			log.Println("interrupted")
-
-			err := c.WriteMessage(
-				websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
-			)
-
-			if err != nil {
-				log.Println("write closed", err)
-				return
-			}
-			select {
-			case <-done:
-			case <-time.After(time.Second):
-			}
-			return
-		}
-	}
-}
-
-func subscribeToChannel(channelName string, worldId int, c *websocket.Conn) {
-	subMsg, err := bson.Marshal(
-		map[string]string{
-			"event":   "subscribe",
-			"channel": fmt.Sprintf("%s{world=%d}", channelName, worldId),
-		},
-	)
-
-	if err != nil {
-		log.Fatal("marshal:", err)
-	}
-
-	err = c.WriteMessage(websocket.BinaryMessage, subMsg)
-	if err != nil {
-		log.Fatal("write:", err)
-	}
-}
-
-func readDockerSecret(secretName string) string {
-	secretPath := os.Getenv("SECRETS_DIR") + secretName + os.Getenv("SECRETS_SUFFIX")
-	secret, err := os.ReadFile(secretPath)
-	if err != nil {
-		return ""
-	}
-
-	return string(secret)
 }
 
 type Config struct {

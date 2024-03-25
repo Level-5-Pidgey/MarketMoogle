@@ -3,6 +3,7 @@ package profitCalc
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 )
@@ -11,7 +12,7 @@ type ShoppingListing struct {
 	ItemId       int
 	Quantity     int
 	RetainerName string
-	listingId    int
+	listingId    string
 	worldId      int
 	CostPer      int
 }
@@ -37,22 +38,22 @@ func (s ShoppingListing) BuyFrom() string {
 }
 
 func (s ShoppingListing) GetHash() string {
-	return fmt.Sprintf("%d_%d", s.ItemId, s.listingId)
+	return fmt.Sprintf("%d_%s", s.ItemId, s.listingId)
 }
 
 type LocalItem struct {
 	ItemId       int
 	Quantity     int
 	ObtainedFrom string
-	CostPer      int
+	CostPer      float64
 }
 
 func (l LocalItem) GetTotalCost() int {
-	return l.CostPer * l.Quantity
+	return l.GetCostPer() * l.Quantity
 }
 
 func (l LocalItem) GetCostPer() int {
-	return l.CostPer
+	return int(math.Ceil(l.CostPer))
 }
 
 func (l LocalItem) GetItemId() int {

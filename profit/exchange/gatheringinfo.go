@@ -60,7 +60,7 @@ func (gatheringInfo GatheringInfo) GetQuantity() int {
 }
 
 func (gatheringInfo GatheringInfo) GetCost() int {
-	baseCost := 1650
+	baseCost := 2150
 
 	adjustedCost := baseCost
 	for i := gatheringInfo.Level; i < 90; i += 3 {
@@ -75,9 +75,9 @@ func (gatheringInfo GatheringInfo) GetCost() int {
 	return adjustedCost
 }
 
-func (gatheringInfo GatheringInfo) GetCostPerItem() int {
+func (gatheringInfo GatheringInfo) GetCostPerItem() float64 {
 	costToObtain := gatheringInfo.GetCost()
 	amountReceived := gatheringInfo.GetQuantity()
 
-	return costToObtain / amountReceived
+	return float64(costToObtain / amountReceived)
 }

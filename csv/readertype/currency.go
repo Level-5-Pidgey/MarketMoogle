@@ -221,17 +221,25 @@ func FromApiParam(s string) Currency {
 	case "gil":
 		return Gil
 	case "grandcompanyseals":
+		return GrandCompanySeal
 	case "gcseals":
 		return GrandCompanySeal
+	case "gcseal":
+		return GrandCompanySeal
 	case "allagantomestonesofpoetics":
+		return PoeticTomestone
 	case "poetics":
 		return PoeticTomestone
 	case "uncappedtome":
+		return UncappedTomestone
 	case "allagantomestonesofcausality":
+		return UncappedTomestone
 	case "causality":
 		return UncappedTomestone
 	case "cappedtome":
+		return CappedTomestone
 	case "allagantomestonesofcomedy":
+		return CappedTomestone
 	case "comedy":
 		return CappedTomestone
 	case "wolfmark":
@@ -246,11 +254,19 @@ func FromApiParam(s string) Currency {
 		return SackOfNuts
 	case "whitecraftersscrip":
 		return WhiteCraftersScrip
+	case "whitecrafter":
+		return WhiteCraftersScrip
+	case "purplecrafter":
+		return PurpleCraftersScrip
 	case "purplecraftersscrip":
 		return PurpleCraftersScrip
 	case "whitegatherersscrip":
 		return WhiteGatherersScrip
 	case "purplegatherersscrip":
+		return PurpleGatherersScrip
+	case "whitegatherer":
+		return WhiteGatherersScrip
+	case "purplegatherer":
 		return PurpleGatherersScrip
 	case "skybuildersscrip":
 		return SkybuildersScrip
@@ -297,8 +313,6 @@ func FromApiParam(s string) Currency {
 	default:
 		return DefaultCurrency
 	}
-
-	return DefaultCurrency
 }
 
 var itemIdToCurrency = map[int]Currency{
