@@ -121,6 +121,7 @@ func (c Controller) GetAllItemProfit(w http.ResponseWriter, r *http.Request) {
 	var wg sync.WaitGroup
 	resultsChan := make(chan *profitCalc.ProfitInfo)
 	errorsChan := make(chan error)
+	semaphore := make(chan struct{}, 500)
 
 	for _, item := range *c.profitCalc.Items {
 		if item.MarketProhibited {
@@ -128,9 +129,11 @@ func (c Controller) GetAllItemProfit(w http.ResponseWriter, r *http.Request) {
 		}
 
 		wg.Add(1)
+		semaphore <- struct{}{}
 
 		go func(item *profitCalc.Item, playerInfo *profitCalc.PlayerInfo) {
 			defer wg.Done()
+			defer func() { <-semaphore }()
 
 			profitInfo, err := c.profitCalc.CalculateProfitForItem(item, playerInfo)
 

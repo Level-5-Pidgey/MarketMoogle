@@ -17,7 +17,7 @@ type ProfitCalculator struct {
 	Items                    *map[int]*Item
 	currencyByObtainMethod   *map[string]map[int]*Item
 	currencyByExchangeMethod *map[string]map[int]*Item
-	repository               db.Repository
+	Repository               db.Repository
 	cache                    cache.Cache
 }
 
@@ -25,7 +25,7 @@ const (
 	maxLevel             = 90
 	noMethodFoundError   = "no exchangeType method found"
 	competitionThreshold = 3.0
-	salesDayRange        = 7
+	salesDayRange        = 14
 )
 
 func NewProfitCalculator(
@@ -39,7 +39,7 @@ func NewProfitCalculator(
 		currencyByObtainMethod:   currencyByObtainMethod,
 		currencyByExchangeMethod: currencyByExchangeMethod,
 		Items:                    itemMap,
-		repository:               repo,
+		Repository:               repo,
 		cache:                    cache,
 	}
 }
@@ -372,7 +372,7 @@ func (p *ProfitCalculator) GetCheapestObtainMethod(
 	return cheapestMethod
 }
 
-func (p *ProfitCalculator) getPossibleSubItems(
+func (p *ProfitCalculator) GetPossibleSubItems(
 	itemsAndQuantities map[int]struct{}, item *Item, skipCrystals bool,
 ) map[int]struct{} {
 	if itemsAndQuantities == nil {
@@ -394,7 +394,7 @@ func (p *ProfitCalculator) getPossibleSubItems(
 			}
 
 			if ingredientItem.CraftingRecipes != nil {
-				itemsAndQuantities = p.getPossibleSubItems(
+				itemsAndQuantities = p.GetPossibleSubItems(
 					itemsAndQuantities,
 					ingredientItem,
 					skipCrystals,
@@ -719,7 +719,7 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 	// Pre-calculate all items that could be involved in the obtaining of this item
 	itemIds := make([]int, 0, 10)
 	if item.CraftingRecipes != nil {
-		itemMap := p.getPossibleSubItems(nil, item, info.SkipCrystals)
+		itemMap := p.GetPossibleSubItems(nil, item, info.SkipCrystals)
 		for itemId := range itemMap {
 			itemIds = append(itemIds, itemId)
 		}
@@ -734,7 +734,7 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 	var listings *[]db.Listing = nil
 	var listingsOnPlayerWorld []db.Listing
 	if len(itemIds) > 0 {
-		listingResults, err := p.repository.GetListingsForItemsOnDataCenter(itemIds, info.DataCenter)
+		listingResults, err := p.Repository.GetListingsForItemsOnDataCenter(itemIds, info.DataCenter)
 		listings = listingResults
 		if err != nil {
 			return nil, err
@@ -747,7 +747,7 @@ func (p *ProfitCalculator) CalculateProfitForItem(item *Item, info *PlayerInfo) 
 		}
 	}
 
-	sales, err := p.repository.GetSalesForItemOnDataCenter(item.Id, info.DataCenter)
+	sales, err := p.Repository.GetSalesForItemOnDataCenter(item.Id, info.DataCenter)
 	if err != nil {
 		return nil, err
 	}
@@ -823,12 +823,12 @@ func (p *ProfitCalculator) getGilValueAndBestSaleForCurrency(currency string, se
 		return 0, nil, nil
 	}
 
-	listings, err := p.repository.GetListingsForItemsOnWorld(itemIds, serverId)
+	listings, err := p.Repository.GetListingsForItemsOnWorld(itemIds, serverId)
 	if err != nil {
 		return 0, nil, nil
 	}
 
-	sales, err := p.repository.GetSalesForItemsOnWorld(itemIds, serverId)
+	sales, err := p.Repository.GetSalesForItemsOnWorld(itemIds, serverId)
 	if err != nil {
 		return 0, nil, nil
 	}
@@ -971,7 +971,7 @@ func (p *ProfitCalculator) getCheapestMethodToObtainCurrency(currency string, in
 		itemIds = append(itemIds, item.Id)
 	}
 
-	listingResults, err := p.repository.GetListingsForItemsOnDataCenter(itemIds, info.DataCenter)
+	listingResults, err := p.Repository.GetListingsForItemsOnDataCenter(itemIds, info.DataCenter)
 	if err != nil {
 		return nil, err
 	}

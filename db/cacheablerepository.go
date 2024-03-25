@@ -7,11 +7,13 @@ import (
 	"fmt"
 	cache "github.com/go-pkgz/expirable-cache"
 	"github.com/level-5-pidgey/MarketMoogle/csv/readertype"
+	"github.com/level-5-pidgey/MarketMoogle/util"
 	"io"
 	"log"
 	"net/http"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/pgxpool"
@@ -20,10 +22,10 @@ import (
 const (
 	cacheExpiry      = 15 * time.Minute
 	ignorePriceValue = 250 * 1000000
-	maxRetrievalTime = 2 * time.Hour * 24 * 365
+	maxRetrievalTime = 172800
 	batchLimit       = 100
-	listingCacheKey  = "l%d_%d"
-	saleCacheKey     = "s%d_%d"
+	listingCacheKey  = "l%d_%v"
+	saleCacheKey     = "s%d_%v"
 )
 
 type CacheableRepository struct {
@@ -42,8 +44,8 @@ func makeApiRequest[T any](url string) (*T, error) {
 	}
 
 	// API has a DNS problem or is offline, cancel unmarshalling
-	if resp.StatusCode == 522 {
-		return nil, errors.New("522 code returned from api request")
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("universalis api returned status code %d", resp.StatusCode)
 	}
 
 	body, readAllError := io.ReadAll(resp.Body)
@@ -78,15 +80,6 @@ func InitRepository(
 	return repo, nil
 }
 
-func batchItems(itemIds []int) [][]int {
-	var batches [][]int
-	for batchLimit < len(itemIds) {
-		itemIds, batches = itemIds[batchLimit:], append(batches, itemIds[0:batchLimit:batchLimit])
-	}
-	batches = append(batches, itemIds)
-	return batches
-}
-
 func (c *CacheableRepository) GetListingsForItemsOnWorld(itemIds []int, worldId int) (*[]Listing, error) {
 	dataCenter := c.getDataCenterFromWorldId(worldId)
 
@@ -110,7 +103,7 @@ func (c *CacheableRepository) GetListingsForItemsOnWorld(itemIds []int, worldId 
 }
 
 func (c *CacheableRepository) GetListingsForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]Listing, error) {
-	batchedItems := batchItems(itemIds)
+	batchedItems := util.BatchItems(itemIds, batchLimit)
 	dataCenter := c.getDataCenterFromDcId(dataCenterId)
 
 	if dataCenter == nil {
@@ -118,82 +111,119 @@ func (c *CacheableRepository) GetListingsForItemsOnDataCenter(itemIds []int, dat
 	}
 
 	dcString := dataCenter.Name
+	var wg sync.WaitGroup
+	listingsChan := make(chan []Listing)
+	errorsChan := make(chan error, len(batchedItems))
 
 	var results []Listing
-	for _, batch := range batchedItems {
-		// Loop through each batch
-		misses := make([]int, 0, batchLimit)
-
-		for _, itemId := range batch {
-			listing, found := c.cache.Get(fmt.Sprintf(listingCacheKey, dataCenterId, itemId))
-
-			if found {
-				cachedListings := listing.([]Listing)
-				results = append(results, cachedListings...)
-			} else {
-				misses = append(misses, itemId)
-			}
+	go func() {
+		for listings := range listingsChan {
+			results = append(results, listings...)
 		}
+	}()
 
-		// Get information on all misses from the API
-		if len(misses) == 1 {
-			itemId := misses[0]
-			url := fmt.Sprintf(
-				"https://universalis.app/api/v2/%s/%d?entriesWithin=%d&fields=listings%%2ClastUploadTime",
-				dcString,
-				misses[0],
-				maxRetrievalTime,
-			)
+	for _, batch := range batchedItems {
+		wg.Add(1)
 
-			res, err := makeApiRequest[ItemDetails](url)
-			if err != nil {
-				return nil, err
-			}
+		var batchResults []Listing
+		go func(batch []int) {
+			defer wg.Done()
+			// Loop through each batch
+			misses := c.getListingCacheMisses(batch, dataCenterId, &batchResults)
 
-			for _, listing := range res.Listings {
-				listing.ItemId = itemId
-				listing.DataCenterId = dataCenterId
-				listing.RegionId = dataCenter.Group
-
-				results = append(results, listing)
-			}
-
-			c.cache.Set(fmt.Sprintf(listingCacheKey, dataCenterId, itemId), results, cacheExpiry)
-		} else if len(misses) > 1 {
-			missIdsAsString := intArrayToString(misses)
-			url := fmt.Sprintf(
-				"https://universalis.app/api/v2/%s/%s?entriesWithin=%d&fields=items.listings%%2Citems.lastUploadTime",
-				dcString,
-				missIdsAsString,
-				maxRetrievalTime,
-			)
-
-			res, err := makeApiRequest[MarketData](url)
-			if err != nil {
-				return nil, err
-			}
-
-			// Add apiListings and apiSales to cache
-			for itemIdString, marketData := range res.Items {
-				itemId, err := strconv.Atoi(itemIdString)
+			// Get information on all misses from the API
+			if len(misses) == 1 {
+				listingResults, err := c.updateCacheSingleListing(misses[0], dcString, dataCenterId, dataCenter)
 				if err != nil {
-					continue
+					errorsChan <- err
+					return
 				}
 
-				listings := marketData.Listings
-				for _, listing := range listings {
-					listing.ItemId = itemId
-					listing.DataCenterId = dataCenterId
-					listing.RegionId = dataCenter.Group
-
-					c.cache.Set(fmt.Sprintf(listingCacheKey, dataCenterId, itemId), listings, cacheExpiry)
-					results = append(results, listing)
+				batchResults = append(batchResults, listingResults...)
+			} else if len(misses) > 1 {
+				listingResults, err := c.updateCacheMultiListing(misses, dcString, dataCenterId, dataCenter)
+				if err != nil {
+					errorsChan <- err
+					return
 				}
+
+				batchResults = append(batchResults, listingResults...)
 			}
+
+			listingsChan <- batchResults
+		}(batch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(listingsChan)
+		close(errorsChan)
+	}()
+
+	if len(errorsChan) > 0 {
+		fmt.Printf("Multiple (%d) readerErrors occurred: ", len(errorsChan))
+		for err := range errorsChan {
+			fmt.Printf("Error #%d: %v\n", err)
 		}
 	}
 
 	return &results, nil
+}
+
+func (c *CacheableRepository) updateCacheMultiListing(
+	misses []int, dcString string, dataCenterId int, dataCenter *readertype.DataCenter,
+) (results []Listing, _ error) {
+	missIdsAsString := intArrayToString(misses)
+	url := getUniversalisMultiListingUrl(dcString, missIdsAsString)
+
+	res, err := makeApiRequest[MarketData](url)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add apiListings and apiSales to cache
+	for itemIdString, marketData := range res.Items {
+		itemId, err := strconv.Atoi(itemIdString)
+		if err != nil {
+			continue
+		}
+
+		listings := marketData.Listings
+		for _, listing := range listings {
+			listing.ItemId = itemId
+			listing.DataCenterId = dataCenterId
+			listing.RegionId = dataCenter.Group
+
+			results = append(results, listing)
+		}
+
+		c.cache.Set(fmt.Sprintf(listingCacheKey, dataCenterId, itemId), listings, cacheExpiry)
+	}
+
+	return results, nil
+}
+
+func (c *CacheableRepository) updateCacheSingleListing(
+	itemId int, dcString string, dataCenterId int, dataCenter *readertype.DataCenter,
+) (results []Listing, _ error) {
+	url := getUniversalisSingleListingUrl(dcString, itemId)
+
+	res, err := makeApiRequest[ItemDetails](url)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, listing := range res.Listings {
+		listing.ItemId = itemId
+		listing.DataCenterId = dataCenterId
+		listing.RegionId = dataCenter.Group
+
+		results = append(results, listing)
+	}
+
+	c.cache.Set(fmt.Sprintf(listingCacheKey, dataCenterId, itemId), results, cacheExpiry)
+
+	return results, nil
 }
 
 func (c *CacheableRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId int) (*[]Sale, error) {
@@ -204,41 +234,18 @@ func (c *CacheableRepository) GetSalesForItemOnDataCenter(itemId, dataCenterId i
 	}
 
 	dcString := dataCenter.Name
-
 	cachedSales, found := c.cache.Get(fmt.Sprintf(saleCacheKey, dataCenterId, itemId))
-
 	if found {
 		sales := cachedSales.([]Sale)
 		return &sales, nil
 	}
 
-	url := fmt.Sprintf(
-		"https://universalis.app/api/v2/history/%s/%d?entriesToReturn=%d&entriesWithin=%d&maxSalePrice=%d",
-		dcString,
-		itemId,
-		batchLimit,
-		maxRetrievalTime,
-		ignorePriceValue,
-	)
-
-	res, err := makeApiRequest[ItemDetails](url)
+	foundSales, err := c.updateCacheSingleSale(itemId, dcString, dataCenterId, dataCenter)
 	if err != nil {
 		return nil, err
 	}
 
-	var sales []Sale
-	for _, sale := range res.Sales {
-		sale.ItemId = itemId
-		sale.RegionId = dataCenter.Group
-		sale.DataCenterId = dataCenterId
-		sale.Total = sale.Quantity * sale.PricePer
-
-		sales = append(sales, sale)
-	}
-
-	c.cache.Set(fmt.Sprintf(saleCacheKey, dataCenterId, itemId), sales, cacheExpiry)
-
-	return &sales, nil
+	return &foundSales, nil
 }
 
 func (c *CacheableRepository) GetSalesForItemsOnWorld(itemIds []int, worldId int) (*[]Sale, error) {
@@ -264,7 +271,7 @@ func (c *CacheableRepository) GetSalesForItemsOnWorld(itemIds []int, worldId int
 }
 
 func (c *CacheableRepository) GetSalesForItemsOnDataCenter(itemIds []int, dataCenterId int) (*[]Sale, error) {
-	batchedItems := batchItems(itemIds)
+	batchedItems := util.BatchItems(itemIds, batchLimit)
 	dataCenter := c.getDataCenterFromDcId(dataCenterId)
 
 	if dataCenter == nil {
@@ -272,80 +279,186 @@ func (c *CacheableRepository) GetSalesForItemsOnDataCenter(itemIds []int, dataCe
 	}
 
 	dcString := dataCenter.Name
+	var wg sync.WaitGroup
+	salesChan := make(chan []Sale)
+	errorsChan := make(chan error, len(batchedItems))
 
 	var results []Sale
-	for _, batch := range batchedItems {
-		// Loop through each batch
-		misses := make([]int, 0, batchLimit)
-
-		for _, itemId := range batch {
-			sales, found := c.cache.Get(fmt.Sprintf(saleCacheKey, dataCenterId, itemId))
-
-			if found {
-				cachedSales := sales.([]Sale)
-				results = append(results, cachedSales...)
-			} else {
-				misses = append(misses, itemId)
-			}
+	go func() {
+		for sales := range salesChan {
+			results = append(results, sales...)
 		}
+	}()
 
-		// Get information on all misses from the API
-		if len(misses) == 1 {
-			itemId := misses[0]
-			url := fmt.Sprintf(
-				"https://universalis.app/api/v2/history/%s/%d?entriesToReturn=%d&entriesWithin=%d&maxSalePrice=%d",
-				dcString,
-				itemId,
-				batchLimit,
-				maxRetrievalTime,
-				ignorePriceValue,
-			)
+	for _, batch := range batchedItems {
+		wg.Add(1)
 
-			res, err := makeApiRequest[ItemDetails](url)
-			if err != nil {
-				return nil, err
-			}
+		var batchResults []Sale
+		go func(batch []int) {
+			defer wg.Done()
 
-			for _, sale := range res.Sales {
-				sale.ItemId = itemId
-				sale.DataCenterId = dataCenterId
-				sale.RegionId = dataCenter.Group
+			// Loop through each batch
+			misses := c.getSaleCacheMisses(batch, dataCenterId, &batchResults)
 
-				results = append(results, sale)
-			}
-
-			c.cache.Set(fmt.Sprintf(saleCacheKey, dataCenterId, itemId), results, cacheExpiry)
-		} else if len(misses) > 0 {
-			missIdsAsString := intArrayToString(misses)
-			url := fmt.Sprintf(
-				"https://universalis.app/api/v2/history/%s/%s?entriesToReturn=%d&entriesWithin=%d&maxSalePrice=%d",
-				dcString,
-				missIdsAsString,
-				batchLimit,
-				maxRetrievalTime,
-				ignorePriceValue,
-			)
-
-			res, err := makeApiRequest[MarketData](url)
-			if err != nil {
-				return nil, err
-			}
-
-			for itemId, marketData := range res.Items {
-				sales := marketData.Sales
-				for _, sale := range sales {
-					sale.ItemId = marketData.ItemId
-					sale.DataCenterId = dataCenterId
-					sale.RegionId = dataCenter.Group
-
-					c.cache.Set(fmt.Sprintf(saleCacheKey, dataCenterId, itemId), sales, cacheExpiry)
-					results = append(results, sale)
+			// Get information on all misses from the API
+			if len(misses) == 1 {
+				foundSales, err := c.updateCacheSingleSale(misses[0], dcString, dataCenterId, dataCenter)
+				if err != nil {
+					errorsChan <- err
+					return
 				}
+
+				batchResults = append(batchResults, foundSales...)
+			} else if len(misses) > 1 {
+				foundSales, err := c.updateCacheMultiSale(misses, dcString, dataCenterId, dataCenter)
+				if err != nil {
+					errorsChan <- err
+					return
+				}
+
+				batchResults = append(batchResults, foundSales...)
 			}
+
+			salesChan <- batchResults
+		}(batch)
+	}
+
+	wg.Wait()
+	close(salesChan)
+	close(errorsChan)
+
+	if len(errorsChan) > 0 {
+		fmt.Printf("Multiple (%d) readerErrors occurred: ", len(errorsChan))
+		for err := range errorsChan {
+			fmt.Printf("Error #%d: %v\n", err)
 		}
 	}
 
 	return &results, nil
+}
+
+func (c *CacheableRepository) updateCacheMultiSale(
+	misses []int, dcString string, dataCenterId int, dataCenter *readertype.DataCenter,
+) (results []Sale, _ error) {
+	missIdsAsString := intArrayToString(misses)
+	url := getUniversalisMultiSaleHistoryUrl(dcString, missIdsAsString)
+
+	res, err := makeApiRequest[MarketData](url)
+	if err != nil {
+		return nil, err
+	}
+
+	for itemId, marketData := range res.Items {
+		sales := marketData.Sales
+		for _, sale := range sales {
+			sale.ItemId = marketData.ItemId
+			sale.DataCenterId = dataCenterId
+			sale.RegionId = dataCenter.Group
+
+			results = append(results, sale)
+		}
+
+		c.cache.Set(fmt.Sprintf(saleCacheKey, dataCenterId, itemId), sales, cacheExpiry)
+	}
+
+	return results, nil
+}
+
+func (c *CacheableRepository) updateCacheSingleSale(
+	itemId int, dcString string, dataCenterId int, dataCenter *readertype.DataCenter,
+) (results []Sale, _ error) {
+	url := getUniversalisSingleSaleHistoryUrl(dcString, itemId)
+
+	res, err := makeApiRequest[ItemDetails](url)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sale := range res.Sales {
+		sale.ItemId = itemId
+		sale.DataCenterId = dataCenterId
+		sale.RegionId = dataCenter.Group
+
+		results = append(results, sale)
+	}
+
+	c.cache.Set(fmt.Sprintf(saleCacheKey, dataCenterId, itemId), results, cacheExpiry)
+
+	return results, nil
+}
+
+func (c *CacheableRepository) getSaleCacheMisses(batch []int, dataCenterId int, results *[]Sale) []int {
+	misses := make([]int, 0, batchLimit)
+
+	for _, itemId := range batch {
+		sales, found := c.cache.Get(fmt.Sprintf(saleCacheKey, dataCenterId, itemId))
+
+		if found {
+			cachedSales := sales.([]Sale)
+			*results = append(*results, cachedSales...)
+		} else {
+			misses = append(misses, itemId)
+		}
+	}
+
+	return misses
+}
+
+func (c *CacheableRepository) getListingCacheMisses(batch []int, dataCenterId int, results *[]Listing) []int {
+	misses := make([]int, 0, batchLimit)
+
+	for _, itemId := range batch {
+		listings, found := c.cache.Get(fmt.Sprintf(listingCacheKey, dataCenterId, itemId))
+
+		if found {
+			cachedListings := listings.([]Listing)
+			*results = append(*results, cachedListings...)
+		} else {
+			misses = append(misses, itemId)
+		}
+	}
+
+	return misses
+}
+
+func getUniversalisMultiSaleHistoryUrl(dcString string, missIdsAsString string) string {
+	return fmt.Sprintf(
+		"https://universalis.app/api/v2/history/%s/%s?entriesToReturn=%d&entriesWithin=%d&maxSalePrice=%d",
+		dcString,
+		missIdsAsString,
+		35,
+		maxRetrievalTime,
+		ignorePriceValue,
+	)
+}
+
+func getUniversalisSingleSaleHistoryUrl(dcString string, itemId int) string {
+	return fmt.Sprintf(
+		"https://universalis.app/api/v2/history/%s/%d?entriesToReturn=%d&entriesWithin=%d&maxSalePrice=%d",
+		dcString,
+		itemId,
+		35,
+		maxRetrievalTime,
+		ignorePriceValue,
+	)
+}
+
+func getUniversalisMultiListingUrl(dcString string, missIdsAsString string) string {
+	return fmt.Sprintf(
+		"https://universalis.app/api/v2/%s/%s?entriesWithin=%d&fields=items.listings%%2Citems.lastUploadTime",
+		dcString,
+		missIdsAsString,
+		maxRetrievalTime,
+	)
+}
+
+func getUniversalisSingleListingUrl(dcString string, itemId int) string {
+	return fmt.Sprintf(
+		"https://universalis.app/api/v2/%s/%d?entriesWithin=%d&fields=listings%%2ClastUploadTime",
+		dcString,
+		itemId,
+		maxRetrievalTime,
+	)
 }
 
 func intArrayToString(i []int) string {

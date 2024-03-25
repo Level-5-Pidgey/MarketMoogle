@@ -165,6 +165,59 @@ func main() {
 	// Create Profit Calculator
 	p := profitCalc.NewProfitCalculator(&profitItems, &itemsByObtainInfo, &itemsByExchangeMethod, repository, c)
 
+	// Warm up the cache
+	/*itemIdMap := make(map[int]interface{})
+	for _, item := range profitItems {
+		if item.MarketProhibited {
+			continue
+		}
+
+		if item.CraftingRecipes != nil {
+			subItems := p.GetPossibleSubItems(nil, item, true)
+			for itemId := range subItems {
+				itemIdMap[itemId] = nil
+			}
+		}
+
+		itemIdMap[item.Id] = nil
+	}
+
+	itemIds := make([]int, 0, len(itemIdMap))
+	for itemId := range itemIdMap {
+		itemIds = append(itemIds, itemId)
+	}
+
+	batchedItemIds := util.BatchItems(itemIds, 250)
+	cacheWarmBar := progressbar.Default(int64(len(itemIds)))
+	// Load these item ids into cache
+	for _, idBatch := range batchedItemIds {
+		barErr := cacheWarmBar.Add(len(idBatch))
+		if barErr != nil {
+			fmt.Printf("Error warming up cache: %s", barErr)
+			return
+		}
+
+		_, err = p.Repository.GetSalesForItemsOnDataCenter(idBatch, 9)
+		if err != nil {
+			return
+		}
+
+		_, err = p.Repository.GetListingsForItemsOnDataCenter(idBatch, 9)
+		if err != nil {
+			return
+		}
+
+		time.Sleep(time.Millisecond * 3500)
+	}
+
+	closeErr := cacheWarmBar.Close()
+	if closeErr != nil {
+		fmt.Printf("Error warming up cache: %s", closeErr)
+		return
+	}
+
+	time.Sleep(time.Second * 5)*/
+
 	// Start up API server
 	err = app.Serve(collection, worlds, p)
 	if err != nil {
